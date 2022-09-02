@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Main Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Main Files\PCH">
+      <UniqueIdentifier>{a9550672-ade2-4d1e-bbd9-f21a9ec0c30c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Main Files\Utils">
+      <UniqueIdentifier>{553e5f81-64ac-4958-9512-6830b4d05889}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework.h">
+      <Filter>Main Files\PCH</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Main Files\PCH</Filter>
+    </ClInclude>
+    <ClInclude Include="Memory.h">
+      <Filter>Main Files\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Main.h">
+      <Filter>Main Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Functions.h">
+      <Filter>Main Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Unreal.h">
+      <Filter>Main Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook.h">
+      <Filter>Main Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Main Files\PCH</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

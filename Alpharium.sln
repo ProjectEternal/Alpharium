@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32112.339
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Alpharium", "Alpharium.vcxproj", "{8D8BA28A-74A3-4BEB-B368-B5C8C0C07ED8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8D8BA28A-74A3-4BEB-B368-B5C8C0C07ED8}.Release|x86.ActiveCfg = Release|Win32
+		{8D8BA28A-74A3-4BEB-B368-B5C8C0C07ED8}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B92686C8-AA4E-4FDD-9C99-F6FAF0E3DFA5}
+	EndGlobalSection
+EndGlobal
