@@ -158,6 +158,8 @@ namespace Unreal {
 		FVector Scale;
 		unsigned char Data1[0x4];
 	};
+
+	UObject* (*SLO)(UObject*, UObject*, const TCHAR*, const TCHAR*, uint32_t, UObject*, bool);
 }
 Unreal::FUObjectArray* GObjs; //Global UObject Array
 

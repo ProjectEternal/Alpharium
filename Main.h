@@ -10,20 +10,27 @@ bool InGame = false;
 void SetupThread() {
 	Unreal::UObject* GS = nullptr;
 	while (true) {
-		GS = FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.FortGameState_0",true,false);
-		Globals::GPawn = FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.PlayerPawn_Generic_C_0", true, false);
-		if (GS->IsValid() && Globals::GPawn->IsValid()) {
+		GS = FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.FortGameState_0", true, false);
+		Globals::GPawn = FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.PlayerPawn_Commando_C_0", true, false);
+		Globals::GPC = FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.FortPlayerControllerZone_0", true, false);
+		if (GS->IsValid() && Globals::GPawn->IsValid() && Globals::GPC->IsValid()) {
 			break;
 		}
 		Sleep(1000 / 30);
 	}
+	MessageBoxA(0, "Setting up!", "Alpharium", MB_OK);
+	auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
+	auto Player = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Data[0];
+	*Finder::Find(Globals::GPC, "Player") = Player;
+	*Finder::Find(Player, "PlayerController") = Globals::GPC;
+	Functions::SetupCM();
 	Globals::GPC->ProcessEvent(FindObject("/Script/Engine.Controller:Possess"), &Globals::GPawn);
 	Unreal::UObject* CM = *Finder::Find(Globals::GPC, "CheatManager");
 	CM->ProcessEvent(FindObject("/Script/Engine.CheatManager:God"));
 	(*Finder::Find(Globals::GPawn, "PlayerState"))->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerState:OnRep_CharacterParts"));
 	FindObject("/Game/Maps/Zones/TheFarmstead/Zone_Onboarding_FarmsteadFort.Zone_Onboarding_FarmsteadFort:PersistentLevel.FortGameMode_0")->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
-	Functions::ToggleHUD(true);
 	//Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ServerReadyToStartMatch"));
+	//Functions::SpawnActor("FortPlayerControllerZone");
 	DumpObjects();
 }
 namespace Hooks {
@@ -62,7 +69,7 @@ namespace Hooks {
 				DumpObjects();
 				std::cout << "RTSM!\n";
 				Functions::GetPC();
-				MessageBoxA(0, "After pressing Ok, Type the commands in order to continue!\nsummon PlayerPawn_Generic_C", "Alpharium", MB_OK);
+				MessageBoxA(0, "After pressing Ok, Type the commands in order to continue!\nsummon FortPlayerControllerZone\nsummon PlayerPawn_Commando_C", "Alpharium", MB_OK);
 				Unreal::UObject* CM = Functions::SetupCM();
 				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)SetupThread, 0, 0, 0);
 			}
@@ -94,6 +101,7 @@ namespace Core {
 		uintptr_t CESO_Addr = Memory::GetAddressFromOffset(0x2090420);
 		/*MH_CreateHook((void*)CESO_Addr, Hooks::CESO_Hk, (void**)&Hooks::CurlEasySetOpt);
 		MH_EnableHook((void*)CESO_Addr);*/
+		Unreal::SLO = decltype(Unreal::SLO)(Memory::GetAddressFromOffset(0x9AFBD0));
 		Functions::SetupConsole();
 		MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
 		Unreal::FString Map = L"Zone_Onboarding_FarmsteadFort?game=FortniteGame.FortGameMode";
