@@ -25,7 +25,7 @@ namespace Unreal {
 
 		//Add a new Value into the TArray
 		void Add(T NewValue) {
-			Data = realloc(Data, sizeof T * (Count++));
+			Data = (T*)realloc(Data, (sizeof(T) * (Count++)));
 			Data[Count] = NewValue;
 			Max = Count;
 		}
@@ -40,7 +40,7 @@ namespace Unreal {
 		FString() { Data = nullptr; Max = Count = 0; }; //Default FString Constructor (creates an empty FString)
 
 		//Creates a new FString with the value being the passed String
-		FString(const wchar_t* String) { Data = const_cast<wchar_t*>(String); Count = Max = std::wcslen(String); };
+		FString(const wchar_t* String) { Data = const_cast<wchar_t*>(String); Count = Max = (std::wcslen(String) + 1); };
 
 		bool IsValid() {
 			return Data != nullptr && Data != L"";
@@ -152,11 +152,22 @@ namespace Unreal {
 	};
 
 	struct FTransform {
-		FQuat Rot;
+		FTransform() {
+			Rotation = {};
+			Scale3D = { 1,1,1 };
+			Translation = {};
+		}
+
+		FTransform(FVector Loc) {
+			Rotation = {};
+			Scale3D = { 1,1,1 };
+			Translation = Loc;
+		}
+		FQuat Rotation;
 		FVector Translation;
-		unsigned char Data[0x4];
-		FVector Scale;
-		unsigned char Data1[0x4];
+		unsigned char UnknownData00[0x4];
+		FVector Scale3D;
+		unsigned char UnknownData01[0x4];
 	};
 
 	UObject* (*SLO)(UObject*, UObject*, const TCHAR*, const TCHAR*, uint32_t, UObject*, bool);
@@ -294,4 +305,51 @@ struct BitField
 	unsigned char F : 1;
 	unsigned char G : 1;
 	unsigned char H : 1;
+};
+
+
+enum class ESpawnActorCollisionHandlingMethod : uint8_t
+{
+	Undefined = 0,
+	AlwaysSpawn = 1,
+	AdjustIfPossibleButAlwaysSpawn = 2,
+	AdjustIfPossibleButDontSpawnIfColliding = 3,
+	DontSpawnIfColliding = 4,
+	ESpawnActorCollisionHandlingMethod_MAX = 5
+};
+
+struct FActorSpawnParameters
+{
+	FActorSpawnParameters() : Name(), Template(nullptr), Owner(nullptr), Instigator(nullptr), OverrideLevel(nullptr), SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::AlwaysSpawn), bRemoteOwned(0), bNoFail(1),
+		bDeferConstruction(0),
+		bAllowDuringConstructionScript(1),
+		ObjectFlags(),
+		bNoCollisionFail(1)
+	{
+	}
+	;
+
+	Unreal::FName Name;
+
+	Unreal::UObject* Template;
+
+	Unreal::UObject* Owner;
+
+	Unreal::UObject* Instigator;
+
+	Unreal::UObject* OverrideLevel;
+
+	ESpawnActorCollisionHandlingMethod SpawnCollisionHandlingOverride;
+
+	uint16_t bNoCollisionFail : 1;
+
+	uint16_t bRemoteOwned : 1;
+
+	uint16_t bNoFail : 1;
+
+	uint16_t bDeferConstruction : 1;
+
+	uint16_t bAllowDuringConstructionScript : 1;
+
+	int32_t ObjectFlags;
 };

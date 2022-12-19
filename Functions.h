@@ -6,6 +6,9 @@ namespace Globals {
 	Unreal::UObject* GEngine; //Global FortEngine
 	Unreal::UObject* GPC; //Global PlayerController
 	Unreal::UObject* GPawn = nullptr; //Global PlayerPawn
+
+	Unreal::UObject* GameMode; //GameMode
+	Unreal::UObject* GameState; //GameState
 }
 
 namespace Functions {
@@ -14,6 +17,14 @@ namespace Functions {
 		auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
 		auto Player = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI,"LocalPlayers")->Data[0];
 		Globals::GPC = *Finder::Find(Player, "PlayerController");
+	}
+
+	Unreal::FName String2Name(Unreal::FString Str) {
+		struct {
+			Unreal::FString InStr;
+			Unreal::FName Ret;
+		} params{Str};
+		FindObject("/Script/Engine.Default__KismetStringLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetStringLibrary:Conv_StringToName"), &params);
 	}
 
 	Unreal::UObject* GetWorld() {
@@ -37,6 +48,21 @@ namespace Functions {
 		params.Plr = Globals::GPC;
 		params.Cmd = std::wstring(L"summon " + std::wstring(Class.begin(), Class.end())).c_str();
 		FindObject("/Script/Engine.Default__KismetSystemLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetSystemLibrary:ExecuteConsoleCommand"), &params);
+	}
+	
+	Unreal::UObject* SpawnObject(Unreal::UObject* Class, Unreal::UObject* Outer) {
+		struct {
+			Unreal::UObject* TargetClass;
+			Unreal::UObject* Outer;
+			Unreal::UObject* Ret;
+		} params;
+
+		params.TargetClass = Class;
+		params.Outer = Outer;
+
+		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
+
+		return params.Ret;
 	}
 
 	//Enables UE Console
@@ -62,7 +88,7 @@ namespace Functions {
 			Unreal::UObject* Ret;
 		} params;
 
-		params.TargetClass = FindObject("/Script/Engine.CheatManager");
+		params.TargetClass = FindObject("/Script/FortniteGame.FortCheatManager");
 		params.Outer = Globals::GPC;
 
 		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
