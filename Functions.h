@@ -11,7 +11,30 @@ namespace Globals {
 	Unreal::UObject* GameState; //GameState
 }
 
+struct FFortGameplayAttributeData {
+	unsigned char UnknownData00[0x8];
+	float BaseValue;
+	float CurrentValue;
+	float Minimum;
+	float Maximum;
+	bool bIsCurrentClamped;
+	bool bIsBaseClamped;
+	bool bShouldClampBase;
+	unsigned char UnknownData01[0x1];
+	float UnclampedBaseValue;
+	float UnclampedCurrentValue;
+	unsigned char UnknownData02[0x4];
+};
+
 namespace Functions {
+	void SetAttribute(FFortGameplayAttributeData& Attribute, int CurrentVal, int MaxVal)
+	{
+		Attribute.BaseValue = 0;
+		Attribute.Maximum = 0;
+		Attribute.CurrentValue = CurrentVal;
+		Attribute.Maximum = MaxVal;
+	}
+
 	//Gets Player Controller
 	void GetPC() {
 		auto GI = *Finder::Find(Globals::GEngine, "GameInstance");

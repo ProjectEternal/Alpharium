@@ -150,8 +150,21 @@ void SetupPawn() {
 		uint8_t CustomMM;
 	} params{ EMovementMode::MOVE_Walking, 0 };
 	MC->ProcessEvent(FindObject("/Script/Engine.CharacterMovementComponent:SetMovementMode"), &params);
-	/*auto MovementSet = (*Finder::Find(Globals::GPawn, "MovementSet"));
-	int CurrentValue_Offset = Finder::GetPropByClass(FindObject(""), "CurrentValue");
+	auto MovementSet = (*Finder::Find(Globals::GPawn, "MovementSet"));
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(MovementSet, "BackwardSpeedMultiplier"), 0.65, 0.65);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(MovementSet, "WalkSpeed"), 200, 200);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(MovementSet, "RunSpeed"), 410, 410);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(MovementSet, "SprintSpeed"), 550, 550);
+	auto AttrSet = FindObject("_0.PlayerAttrSet", false);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(AttrSet, "StaminaRegenDelay"), 0.5, 0.5);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(AttrSet, "StaminaRegenRate"), 0.65, 0.65);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(AttrSet, "Stamina"), 100, 100);
+	Functions::SetAttribute(*Finder::Find<FFortGameplayAttributeData*>(AttrSet, "MaxStamina"), 100, 100);
+	AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_Stamina"));
+	AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_MaxStamina"));
+	AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenDelay"));
+	AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenRate"));
+	/*int CurrentValue_Offset = Finder::GetPropByClass(FindObject(""), "CurrentValue");
 	*Finder::Find<float*>(Finder::Find<void*>(MovementSet, "SpeedMultiplier"),"CurrentValue") = 1.0f;
 	Finder::Find<void*>(MovementSet, "WalkSpeed") = 1.1f;
 	Finder::Find<void*>(MovementSet, "RunSpeed") = 1.5f;
@@ -183,11 +196,11 @@ void SetupPawn() {
 
 	//DumpObjects();
 
-	auto MovementSet = *Finder::Find(Globals::GPawn, "MovementSet");
-	*Finder::Find<float*>(MovementSet, "WalkSpeed") = 1.0f;
-	*Finder::Find<float*>(MovementSet, "SpeedMultiplier") = 1.1f;
+	//auto MovementSet = *Finder::Find(Globals::GPawn, "MovementSet");
+	//*Finder::Find<float*>(MovementSet, "WalkSpeed") = 1.0f;
+	//*Finder::Find<float*>(MovementSet, "SpeedMultiplier") = 1.1f;
 
-	MovementSet->ProcessEvent(FindObject("/Script/FortniteGame.FortMovementSet:OnRep_SpeedMultiplier"));
+	//MovementSet->ProcessEvent(FindObject("/Script/FortniteGame.FortMovementSet:OnRep_SpeedMultiplier"));
 
 	//auto IC = Finder::Find(Globals::GPawn, "InputComponent");
 	//auto CMC = *Finder::Find(Globals::GPawn, "CharacterMovement");
@@ -205,7 +218,7 @@ void Setup() {
 	*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
 	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_bHasServerFinishedLoading"));
-	//Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
+	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
 	DumpObjects();
 }
 
@@ -322,8 +335,8 @@ namespace Core {
 		auto CSR = Functions::SpawnObject(SClass, FindObject("/Engine/Transient.FortEngine_0:FortLocalPlayer_0"));
 		*Finder::Find<uint8_t*>(CSR, "InputPreset") = 0;
 		*Finder::Find(FindObject("/Engine/Transient.FortEngine_0:FortLocalPlayer_0"), "ClientSettingsRecord") = CSR;
-		MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-		Unreal::FString Map = L"PvP_Tower?game=FortniteGame.FortGameMode";
+		//MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
+		Unreal::FString Map = L"Zone_Onboarding_Farmstead?game=FortniteGame.FortGameMode";
 		Globals::GPC->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 		MH_CreateHook((void*)SA_Addr, Hooks::SpawnActor_Hk, (LPVOID*)&SpawnActor_OG);
 		MH_EnableHook((void*)SA_Addr);
