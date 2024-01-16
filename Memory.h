@@ -64,7 +64,7 @@ namespace Memory {
 
 	uintptr_t BaseAddress()
 	{
-		return (uintptr_t)GetModuleHandle(0);
+		return uintptr_t(GetModuleHandle(0));
 	}
 
 	uintptr_t GetAddressFromOffset(DWORD Offset) {

@@ -2,7 +2,7 @@
 #include "pch.h"
 namespace Unreal {
 	void(__cdecl* Free)(void* buf);
-	void* (__fastcall* ProcessEventOG)(struct UObject*, struct UObject*, struct UObject*, void*); //UObject::ProcessEvent
+	void* (__fastcall*ProcessEventOG)(struct UObject*, struct UObject*, struct UObject*, void*); //UObject::ProcessEvent
 	struct FString(*GetPathName)(struct UObject*); //UKismetSystemLibrary::GetPathName
 
 	template <class T> struct TArray {
@@ -290,7 +290,7 @@ void DumpObjects() {
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
 		std::string ObjName = Object->GetName();
-		std::string item = "\nName: " + ObjName;
+		std::string item = "\nClass: " + Object->Class->GetName() + " Name: " + ObjName;
 		log << item;
 	}
 }

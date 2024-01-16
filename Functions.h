@@ -12,7 +12,7 @@ namespace Globals {
 }
 
 struct FFortGameplayAttributeData {
-	unsigned char UnknownData00[0x8];
+	//unsigned char UnknownData00[0x8];
 	float BaseValue;
 	float CurrentValue;
 	float Minimum;
