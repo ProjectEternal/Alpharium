@@ -9,64 +9,10 @@
 bool InGame = false;
 Unreal::UObject* (__fastcall*SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, void* Transform, void* SpawnParameters);
 
-enum class EFortTeam
-{
-	HumanCampaign = 0,
-	Monster = 1,
-	HumanPvP_Team1 = 2,
-	HumanPvP_Team2 = 3,
-	HumanPvP_Team3 = 4,
-	HumanPvP_Team4 = 5,
-	HumanPvP_Team5 = 6,
-	HumanPvP_Team6 = 7,
-	HumanPvP_Team7 = 8,
-	HumanPvP_Team8 = 9,
-	HumanPvP_Team9 = 10,
-	HumanPvP_Team10 = 11,
-	Spectator = 12,
-	MAX = 13,
-	EFortTeam_MAX = 14
-};
-
-enum class EFortGameplayState
-{
-	NormalGameplay = 0,
-	WaitingToStart = 1,
-	EndOfZone = 2,
-	EnteringZone = 3,
-	LeavingZone = 4,
-	Invalid = 5,
-	EFortGameplayState_MAX = 6
-};
-
-enum class EMovementMode : uint8_t
-{
-	MOVE_None = 0,
-	MOVE_Walking = 1,
-	MOVE_NavWalking = 2,
-	MOVE_Falling = 3,
-	MOVE_Swimming = 4,
-	MOVE_Flying = 5,
-	MOVE_Custom = 6,
-	MOVE_MAX = 7
-};
-
-enum class ENetRole
-{
-	ROLE_None = 0,
-	ROLE_SimulatedProxy = 1,
-	ROLE_AutonomousProxy = 2,
-	ROLE_Authority = 3,
-	ROLE_MAX = 4
-};
-
-enum class EComponentMobility
-{
-	Static = 0,
-	Stationary = 1,
-	Movable = 2,
-	EComponentMobility_MAX = 3
-};
+#ifdef DEBUG
+std::ofstream SA_Log("SA.txt");
+std::ofstream PE_Log("PE.txt");
+#endif
 
 struct FGameplayAbilitySpecDef
 {
@@ -130,24 +76,20 @@ bool bRealPawn = false;
 void SetupPawn() {
 	Functions::GetPC();
 	Globals::GPC->ProcessEvent(FindObject("/Script/Engine.Controller:Possess"), &Globals::GPawn);
-	MessageBoxA(0, "Possesed", "Debug", MB_OK);
 	Unreal::UObject* CM = Functions::SetupCM();
 	CM->ProcessEvent(FindObject("/Script/Engine.CheatManager:God"));
-	MessageBoxA(0, "God Mode", "Debug", MB_OK);
 	if (bRealPawn) {
 		Unreal::FString Gender = L"Male";
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:RandomizeOutfit"), &Gender);
 		(*Finder::Find(Globals::GPawn, "PlayerState"))->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerState:OnRep_CharacterParts"));
 		Globals::GPawn->ProcessEvent(FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C:OnCharacterPartsReinitialized"));
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:ToggleGender"));
-		MessageBoxA(0, "Skin Set", "Debug", MB_OK);
 		auto MovementSet = (*Finder::Find(Globals::GPawn, "MovementSet"));
 		*Finder::Find<float*>(MovementSet, "BackwardSpeedMultiplier") = 0.65f;
 		*Finder::Find<float*>(MovementSet, "WalkSpeed") = 200.0f;
 		*Finder::Find<float*>(MovementSet, "RunSpeed") = 410.0f;
 		*Finder::Find<float*>(MovementSet, "SprintSpeed") = 550.0f;
 		MovementSet->ProcessEvent(FindObject("/Script/FortniteGame.FortMovementSet:OnRep_SpeedMultiplier"));
-		MessageBoxA(0, "MS Setup", "Debug", MB_OK);
 		auto AttrSet = FindObject("_0.PlayerAttrSet", false);
 		*Finder::Find<float*>(AttrSet, "StaminaRegenDelay") = 0.5f;
 		*Finder::Find<float*>(AttrSet, "StaminaRegenRate") = 0.65f;
@@ -157,7 +99,6 @@ void SetupPawn() {
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_MaxStamina"));
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenDelay"));
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenRate"));
-		MessageBoxA(0, "AS Setup", "Debug", MB_OK);
 
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Jump"));
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Sprint"));
@@ -174,19 +115,19 @@ void Setup() {
 	*Finder::Find<bool*>(Globals::GPC, "bClientPawnIsLoaded") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasInitiallySpawned") = true;
 	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_bHasServerFinishedLoading"));
-	MessageBoxA(0, "PC Setup!", "Debug", MB_OK);
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
 	DumpObjects();
 }
 
 namespace Hooks {
-	std::ofstream PE_Log("PE.txt");
 	void* __fastcall PEHook(Unreal::UObject* _Obj, Unreal::UObject* Obj, Unreal::UObject* Func, void* Params) {
 		if (_Obj->IsValid() && Func->IsValid()) {
 			std::string FuncName = Func->GetName();
+#ifdef DEBUG
 			if (FuncName != "/Script/Engine.Actor:ReceiveBeginPlay" && FuncName != "/Script/Engine.Actor:ReceiveTick" && !FuncName.contains("UserConstructionScript")) {
-				PE_Log << "ObjName: " << _Obj->GetName()/* << " _ObjName: " << _Obj->GetName()*/ << " FuncName: " << FuncName << std::endl;
+				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
+#endif
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
 				InGame = true;
@@ -208,8 +149,7 @@ namespace Hooks {
 	}
 	Unreal::UObject* Team = nullptr;
 
-	//Scuffed In Game
-	std::ofstream SA_Log("SA.txt");
+	//Scuffed Af
 	Unreal::UObject* __fastcall SpawnActor_Hk(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, void* Transform, void* SpawnParameters) {
 		static auto PlayerStateClass = ("/Script/FortniteGame.FortPlayerState");
 		static auto PlayerControllerClass = ("/Script/FortniteGame.FortPlayerController");
@@ -231,8 +171,9 @@ namespace Hooks {
 		else if (ClassName == "/Script/FortniteGame.FortUIZone") {
 			Class1 = FindObject("/Script/FortniteGame.FortUIPvP");
 		}
+#ifdef DEBUG
 		SA_Log << "Class: " << ClassName << std::endl;
-		//SA_Log << "Class2: " << Class->GetName() << std::endl;
+#endif
 		//Spawn the Actor
 		auto ret = SpawnActor_OG(InWorld, Class, Class1, Transform, SpawnParameters);
 		if (!ret->IsValid()) return ret;
@@ -241,47 +182,20 @@ namespace Hooks {
 			Globals::GPawn = ret;
 			SetupPawn();
 		}
-		else if (ClassName == "/Script/FortniteGame.FortGameMode") {
-			Globals::GameMode = ret;
-			/*auto TIC = FindObject("/Script/FortniteGame.FortTeamInfoPvPBaseDestruction");
-			Team = SpawnActor_OG(InWorld, TIC, TIC, {}, {});
-			*Finder::Find<EFortTeam*>(Team, "Team") = EFortTeam::HumanPvP_Team1;*/
-		}
-		else if (ClassName == GameStateClass) {
-			Globals::GameState = ret;
-			/**Finder::Find<int*>(Globals::GameState, "TeamSize") = 4;
-			*Finder::Find<int*>(Globals::GameState, "TeamCount") = 2;*/
-			/*auto WM_Class = FindObject("/Script/FortniteGame.FortWorldManager");
-			*Finder::Find(ret, "WorldManager") = SpawnActor_OG(Functions::GetWorld(), WM_Class, WM_Class, {}, {});
-			ret->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_WorldManager"));*/
-		}
-		else if (ClassName == PlayerStateClass) {
-			Functions::GetPC();
-			/*if (Team->IsValid()) {
-				*Finder::Find(ret, "PlayerTeam") = Team;
-				Finder::Find<Unreal::TArray<Unreal::UObject*>*>(Team, "TeamMembers")->Add(Globals::GPC);
-				ret->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerState:OnRep_PlayerTeam"));
-			}*/
-			/**Finder::Find(ret, "HeroType") = FindObject("/Game/Heroes/Class_Commando.Class_Commando");
-			ret->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerState:OnRep_HeroType"));*/
-		}
+		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
+		else if (ClassName == GameStateClass) Globals::GameState = ret;
 		return ret;
 	}
 }
 
 namespace Core {
 	void Init() {
-		/*AllocConsole();
-		FILE* pFile;
-		freopen_s(&pFile, ("CONOUT$"), "w", stdout);*/
 		GObjs = reinterpret_cast<Unreal::FUObjectArray*>(Memory::GetAddressFromOffset(0x2DC3AAC));
 		uintptr_t PE_Addr = Memory::GetAddressFromOffset(0x9A9E70);
-		//Unreal::ProcessEventOG = decltype(Unreal::ProcessEventOG)(PE_Addr);
 		Unreal::GetPathName = decltype(Unreal::GetPathName)(Memory::GetAddressFromOffset(0x132C790));
 		Unreal::Free = decltype(Unreal::Free)(Memory::GetAddressFromOffset(0x89CAD0));
 		Unreal::SLO = decltype(Unreal::SLO)(Memory::GetAddressFromOffset(0x9AFBD0));
 		uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
-		//SpawnActor_OG = decltype(SpawnActor_OG)(SA_Addr);
 		Globals::GEngine = FindObject("/Engine/Transient.FortEngine_0");
 		DumpObjects();
 		Functions::GetPC();

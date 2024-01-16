@@ -286,6 +286,9 @@ namespace Finder {
 #include <fstream>
 #include <sstream>
 void DumpObjects() {
+#ifndef DEBUG
+	return;
+#endif
 	std::ofstream log("Objects.txt");
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
@@ -294,18 +297,6 @@ void DumpObjects() {
 		log << item;
 	}
 }
-
-struct BitField
-{
-	unsigned char A : 1;
-	unsigned char B : 1;
-	unsigned char C : 1;
-	unsigned char D : 1;
-	unsigned char E : 1;
-	unsigned char F : 1;
-	unsigned char G : 1;
-	unsigned char H : 1;
-};
 
 
 enum class ESpawnActorCollisionHandlingMethod : uint8_t
