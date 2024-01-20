@@ -79,11 +79,14 @@ void SetupPawn() {
 	Unreal::UObject* CM = Functions::SetupCM();
 	CM->ProcessEvent(FindObject("/Script/Engine.CheatManager:God"));
 	if (bRealPawn) {
+		//Character Parts
 		Unreal::FString Gender = L"Male";
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:RandomizeOutfit"), &Gender);
 		(*Finder::Find(Globals::GPawn, "PlayerState"))->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerState:OnRep_CharacterParts"));
 		Globals::GPawn->ProcessEvent(FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C:OnCharacterPartsReinitialized"));
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:ToggleGender"));
+
+		//Movement Fix
 		auto MovementSet = (*Finder::Find(Globals::GPawn, "MovementSet"));
 		*Finder::Find<float*>(MovementSet, "BackwardSpeedMultiplier") = 0.65f;
 		*Finder::Find<float*>(MovementSet, "WalkSpeed") = 200.0f;
@@ -100,22 +103,32 @@ void SetupPawn() {
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenDelay"));
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenRate"));
 
+		//Spring and Jumping
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Jump"));
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Sprint"));
+
+		//Show Map
+		CM->ProcessEvent(FindObject("/Script/FortniteGame.FortCheatManager:UncoverMap"));
 	}
 
 	DumpObjects();
 }
 
 void Setup() {
+	//TODO: Fix Game Ending immediately
+	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
+	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartPlay"));
+	*Finder::Find<bool*>(Globals::GameMode, "bWorldIsReady") = true;
 	Functions::GetPC();
 	*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bReadyToStartMatch") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bClientPawnIsLoaded") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasInitiallySpawned") = true;
+
 	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_bHasServerFinishedLoading"));
-	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
+
+	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ServerReadyToStartMatch"));
 	DumpObjects();
 }
 
@@ -135,7 +148,17 @@ namespace Hooks {
 				Setup();
 			}
 
-			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct") {
+			if (FuncName == "/Script/FortniteGame.FortCheatManager:CheatScript") {
+				std::string Str = reinterpret_cast<Unreal::FString*>(Params)->ToString();
+
+				//TODO
+
+				return 0;
+			}
+
+			//LS Drop
+			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct" && !bRealPawn) {
+				//PawnStuff
 				bRealPawn = true;
 				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide"));
 			}
