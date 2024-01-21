@@ -115,11 +115,24 @@ void SetupPawn() {
 }
 
 void Setup() {
+	Functions::GetPC();
 	//TODO: Fix Game Ending immediately
+	*Finder::Find<bool*>(Globals::GameMode, "bTravelInitiated") = true;
+	*Finder::Find<bool*>(Globals::GameMode, "bWorldIsReady") = true;
+	*Finder::Find<bool*>(Globals::GameMode, "bTeamGame") = true;
+	*Finder::Find<int*>(Globals::GameMode, "ZoneIndex") = 1;
+
+	*Finder::Find<int*>(Globals::GameState, "WorldLevel") = 1;
+	*Finder::Find<uint8_t*>(Globals::GameState, "GameplayState") = 1;
+	*Finder::Find<float*>(Globals::GameState, "GameDifficulty") = 1.0f;
+
+	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_GameplayState"));
+	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_WorldManager"));
+
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartPlay"));
-	*Finder::Find<bool*>(Globals::GameMode, "bWorldIsReady") = true;
-	Functions::GetPC();
+	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_MatchState"));
+
 	*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bReadyToStartMatch") = true;
@@ -170,7 +183,6 @@ namespace Hooks {
 		}
 		return Unreal::ProcessEventOG(_Obj, Obj, Func, Params);
 	}
-	Unreal::UObject* Team = nullptr;
 
 	//Scuffed Af
 	Unreal::UObject* __fastcall SpawnActor_Hk(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, void* Transform, void* SpawnParameters) {
@@ -183,16 +195,13 @@ namespace Hooks {
 			Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
 		}
 		else if (ClassName == PlayerControllerClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerPvP");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerZone");
 		}
 		else if (ClassName == PlayerStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerStatePvP");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerStateZone");
 		}
 		else if (ClassName == GameStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortGameStatePvP");
-		}
-		else if (ClassName == "/Script/FortniteGame.FortUIZone") {
-			Class1 = FindObject("/Script/FortniteGame.FortUIPvP");
+			Class1 = FindObject("/Script/FortniteGame.FortGameStateZone");
 		}
 #ifdef DEBUG
 		SA_Log << "Class: " << ClassName << std::endl;
@@ -206,7 +215,7 @@ namespace Hooks {
 			SetupPawn();
 		}
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
-		else if (ClassName == GameStateClass) Globals::GameState = ret;
+		else if (ClassName == GameStateClass) Globals::GameState= ret;
 		return ret;
 	}
 }
@@ -230,7 +239,7 @@ namespace Core {
 		MH_CreateHook((void**)PE_Addr, Hooks::PEHook, (void**)&Unreal::ProcessEventOG);
 		MH_EnableHook((void**)PE_Addr);
 		MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-		Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
+		Unreal::FString Map = L"AITestbed_2?Game=FortniteGame.FortGameMode";
 		Globals::GPC->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 		Functions::SetupConsole();
 	}
