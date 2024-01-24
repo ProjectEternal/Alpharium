@@ -5,49 +5,18 @@
 namespace Globals {
 	Unreal::UObject* GEngine; //Global FortEngine
 	Unreal::UObject* GPC; //Global PlayerController
-	Unreal::UObject* GPawn = nullptr; //Global PlayerPawn
+	Unreal::UObject* GPawn; //Global PlayerPawn
 
 	Unreal::UObject* GameMode; //GameMode
 	Unreal::UObject* GameState; //GameState
 }
 
-struct FFortGameplayAttributeData {
-	//unsigned char UnknownData00[0x8];
-	float BaseValue;
-	float CurrentValue;
-	float Minimum;
-	float Maximum;
-	bool bIsCurrentClamped;
-	bool bIsBaseClamped;
-	bool bShouldClampBase;
-	unsigned char UnknownData01[0x1];
-	float UnclampedBaseValue;
-	float UnclampedCurrentValue;
-	unsigned char UnknownData02[0x4];
-};
-
 namespace Functions {
-	void SetAttribute(FFortGameplayAttributeData& Attribute, int CurrentVal, int MaxVal)
-	{
-		Attribute.BaseValue = 0;
-		Attribute.Maximum = 0;
-		Attribute.CurrentValue = CurrentVal;
-		Attribute.Maximum = MaxVal;
-	}
-
 	//Gets Player Controller
 	void GetPC() {
 		auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
-		auto Player = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI,"LocalPlayers")->Data[0];
+		auto Player = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Data[0];
 		Globals::GPC = *Finder::Find(Player, "PlayerController");
-	}
-
-	Unreal::FName String2Name(Unreal::FString Str) {
-		struct {
-			Unreal::FString InStr;
-			Unreal::FName Ret;
-		} params{Str};
-		FindObject("/Script/Engine.Default__KismetStringLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetStringLibrary:Conv_StringToName"), &params);
 	}
 
 	Unreal::UObject* GetWorld() {
@@ -56,23 +25,6 @@ namespace Functions {
 		return Ret;
 	}
 
-	//Set an actors visibility
-	void ToggleActorVisibility(Unreal::UObject* Object, bool Show) {
-		Object->ProcessEvent(FindObject("/Script/Engine.Actor:SetActorHiddenInGame"), &Show);
-	}
-
-	void SpawnActor(std::string Class) {
-		struct {
-			Unreal::UObject* World;
-			Unreal::FString Cmd;
-			Unreal::UObject* Plr;
-		} params;
-		params.World = GetWorld();
-		params.Plr = Globals::GPC;
-		params.Cmd = std::wstring(L"summon " + std::wstring(Class.begin(), Class.end())).c_str();
-		FindObject("/Script/Engine.Default__KismetSystemLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetSystemLibrary:ExecuteConsoleCommand"), &params);
-	}
-	
 	Unreal::UObject* SpawnObject(Unreal::UObject* Class, Unreal::UObject* Outer) {
 		struct {
 			Unreal::UObject* TargetClass;
@@ -87,7 +39,44 @@ namespace Functions {
 
 		return params.Ret;
 	}
+	
+	Unreal::UObject* SpawnActor(Unreal::UObject* Class, Unreal::UObject* Owner = nullptr, Unreal::FVector Loc = Unreal::FVector(1,1,1)) {
+		auto Trans = GTrans;
+		Trans->Translation = Loc;
+		GParms->Owner = Owner;
+		return SpawnActor_OG(GetWorld(), Class, Class, Trans, GParms);
+		/*Unreal::UObject* GPS = FindObject("/Script/Engine.Default__GameplayStatics");
+		struct {
+			Unreal::UObject* World;
+			Unreal::UObject* Class;
+			Unreal::FTransform Trans;
+			bool bFail;
+			Unreal::UObject* Owner;
+			Unreal::UObject* Ret;
+		}p1{ GetWorld(), Class, Trans,true, Owner, nullptr };
 
+		GPS->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:BeginSpawningActorFromClass"), &p1);
+
+
+
+		if (p1.Ret) {
+			struct {
+				Unreal::UObject* In;
+				Unreal::FTransform Trans;
+				Unreal::UObject* Ret;
+			}p2{ p1.Ret,Trans,nullptr };
+
+			GPS->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:FinishSpawningActor"), &p2);
+
+			if (!p2.Ret) p2.Ret = p1.Ret;
+
+			return p2.Ret;
+		}
+		else {
+			MessageBoxA(0, "SA Failed!", MB_OK,0);
+			return nullptr;
+		}*/
+	}
 	//Enables UE Console
 	void SetupConsole() {
 		struct {
@@ -116,12 +105,108 @@ namespace Functions {
 
 		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
 
-		*Finder::Find(Globals::GPC,"CheatManager") = params.Ret;
+		*Finder::Find(Globals::GPC, "CheatManager") = params.Ret;
 		return params.Ret;
 	}
 
-	//Self Explanatory
-	void ToggleHUD(bool Show) {
-		Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:SetShowHUD"), &Show);
+	namespace Kismet {
+
+		Unreal::FName String2Name(Unreal::FString Str) {
+			struct {
+				Unreal::FString InStr;
+				Unreal::FName Ret;
+			} params{ Str };
+			FindObject("/Script/Engine.Default__KismetStringLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetStringLibrary:Conv_StringToName"), &params);
+		}
+	}
+
+	namespace Inventory {
+		struct FFortItemEntry : public FFastArraySerializerItem {
+			int Count;
+			Unreal::UObject* ItemDefinition;
+			float Durability;
+			int Level;
+			int LoadedAmmo;
+			uint8_t UKD_00[0x4];
+			Unreal::TArray<Unreal::UObject*> AlterationDefinitions;
+			Unreal::FString ItemSource;
+			Unreal::FGuid ItemGuid;
+			bool bInOverflow;
+			bool bInStorageVault;
+			bool bIsReplicatedCopy;
+			bool bIsDirty;
+		};
+
+		struct FFortItemList : public FFastArraySerializer {
+			Unreal::TArray<FFortItemEntry> ReplicatedEntries;
+			uint8_t UKD_00;
+			Unreal::TArray<Unreal::UObject*> ItemInstances;
+			uint8_t UKD_01;
+
+			void Init() {
+				ReplicatedEntries = Unreal::TArray<FFortItemEntry>();
+				ItemInstances = Unreal::TArray<Unreal::UObject*>();
+			}
+		};
+
+		void Update() {
+			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+
+			Inv->ProcessEvent(FindObject("/Script/FortniteGame.FortInventory:HandleInventoryLocalUpdate"));
+			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:HandleWorldInventoryLocalUpdate"));
+
+			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:OnRep_PrimaryQuickBar"));
+			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:OnRep_SecondaryQuickBar"));
+
+			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_QuickBar"));
+
+			Finder::Find<FFortItemList*>(Inv, "Inventory")->MarkArrayDirty();
+		}
+
+		void AddItem(Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0) {
+			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			Unreal::UObject* Item;
+			ItemDef->ProcessEvent(FindObject("/Script/FortniteGame.FortItemDefinition:CreateTemporaryItemInstanceBP"), &Item);
+
+			Finder::Find<FFortItemEntry*>(Item, "ItemEntry")->Count = 1;
+			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
+			ItemList->ReplicatedEntries.Add(*Finder::Find<FFortItemEntry*>(Item, "ItemEntry"));
+			ItemList->ItemInstances.Add(Item);
+			struct {
+				Unreal::FGuid ItemGuid;
+				uint8_t Quickbar;
+				int Slot;
+			}p1{ Finder::Find<FFortItemEntry*>(Item, "ItemEntry")->ItemGuid,Quickbar,Slot};
+			(*Finder::Find(Globals::GPC, "QuickBars"))->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:ServerAddItemInternal"), &p1);
+
+			Update();
+		}
+
+		void Setup() {
+			GetPC();
+			Unreal::UObject* Inv = FindObject("FortInventory_1", false);//SpawnActor(FindObject("/Script/FortniteGame.FortInventory"), Globals::GPC);
+			//Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			MessageBoxA(0, Inv->GetName().c_str(), "KMS", MB_OK);
+			/**Finder::Find<uint8_t*>(Inv, "InventoryType") = 0;
+			FFortItemList FortInv = FFortItemList();
+			FortInv.Init();
+			*Finder::Find<FFortItemList*>(Inv, "Inventory") = FortInv;
+			MessageBoxA(0, "SETUP WORLDINVENTORY", "KMS", MB_OK);*/
+			*Finder::Find(Globals::GPC, "WorldInventory") = Inv;
+			MessageBoxA(0, "Setup WI", "KMS", MB_OK);
+			Unreal::UObject* QB = SpawnActor(FindObject("/Script/FortniteGame.FortQuickBars"), Globals::GPC);
+			MessageBoxA(0, QB->GetName().c_str(), "KMS", MB_OK);
+			if (!QB) QB = FindObject("FortQuickBars_0", false);
+			*Finder::Find(Globals::GPC, "QuickBars") = QB;
+			MessageBoxA(0, "ADDING ITEMS", "KMS", MB_OK);
+			AddItem(FindObject("/Game/Weapons/WeaponItemData/Assault/Assault_Auto_T09.Assault_Auto_T09"), 1);
+			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/EditTool.EditTool"));
+
+			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Wall.BuildingItemData_Wall"),0,1,1);
+			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Floor.BuildingItemData_Floor"),1,1,1);
+			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Stair_W.BuildingItemData_Stair_W"),2,1,1);
+			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_RoofS.BuildingItemData_RoofS"),3,1,1);
+		}
 	}
 }

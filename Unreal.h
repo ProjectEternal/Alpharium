@@ -1,5 +1,6 @@
 #pragma once
 #include "pch.h"
+
 namespace Unreal {
 	void(__cdecl* Free)(void* buf);
 	void* (__fastcall*ProcessEventOG)(struct UObject*, struct UObject*, struct UObject*, void*); //UObject::ProcessEvent
@@ -130,7 +131,7 @@ namespace Unreal {
 		float W;
 
 		FQuat() {
-			X = Y = Z = W = 0.0f;
+			X = Y = Z = W = 1.0f;
 		}
 	};
 
@@ -153,27 +154,72 @@ namespace Unreal {
 
 	struct FTransform {
 		FTransform() {
-			Rotation = {};
-			Scale3D = { 1,1,1 };
-			Translation = {};
+			Rotation = FQuat();
+			Scale3D = FVector(1, 1, 1);
+			Translation = FVector(1, 1, 1);
 		}
 
-		FTransform(FVector Loc) {
-			Rotation = {};
-			Scale3D = { 1,1,1 };
-			Translation = Loc;
-		}
 		FQuat Rotation;
 		FVector Translation;
-		unsigned char UnknownData00[0x4];
+		uint8_t UnknownData00[0x4];
 		FVector Scale3D;
-		unsigned char UnknownData01[0x4];
+		uint8_t UnknownData01[0x4];
 	};
 
 	UObject* (*SLO)(UObject*, UObject*, const TCHAR*, const TCHAR*, uint32_t, UObject*, bool);
 }
-Unreal::FUObjectArray* GObjs; //Global UObject Array
 
+enum class ESpawnActorCollisionHandlingMethod : uint8_t
+{
+	Undefined = 0,
+	AlwaysSpawn = 1,
+	AdjustIfPossibleButAlwaysSpawn = 2,
+	AdjustIfPossibleButDontSpawnIfColliding = 3,
+	DontSpawnIfColliding = 4,
+	ESpawnActorCollisionHandlingMethod_MAX = 5
+};
+
+struct FActorSpawnParameters
+{
+	FActorSpawnParameters() : Name(), Template(nullptr), Owner(nullptr), Instigator(nullptr), OverrideLevel(nullptr), SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::AlwaysSpawn), bRemoteOwned(0), bNoFail(1),
+		bDeferConstruction(0),
+		bAllowDuringConstructionScript(1),
+		ObjectFlags(),
+		bNoCollisionFail(1)
+	{
+	}
+	;
+
+	Unreal::FName Name;
+
+	Unreal::UObject* Template;
+
+	Unreal::UObject* Owner;
+
+	Unreal::UObject* Instigator;
+
+	Unreal::UObject* OverrideLevel;
+
+	ESpawnActorCollisionHandlingMethod SpawnCollisionHandlingOverride;
+
+	uint16_t bNoCollisionFail : 1;
+
+	uint16_t bRemoteOwned : 1;
+
+	uint16_t bNoFail : 1;
+
+	uint16_t bDeferConstruction : 1;
+
+	uint16_t bAllowDuringConstructionScript : 1;
+
+	int32_t ObjectFlags;
+};
+
+FActorSpawnParameters* GParms;
+Unreal::FTransform* GTrans;
+
+Unreal::FUObjectArray* GObjs; //Global UObject Array
+Unreal::UObject* (__fastcall* SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Transform, FActorSpawnParameters* Params);
 Unreal::UObject* FindObject(std::string TargetName, bool Exact = true, bool bLog = true) {
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
@@ -206,6 +252,10 @@ namespace Unreal {
 		void* DestLink;
 		void* PostConstLink;
 		TArray<UObject*> ScriptObjRefs;
+	};
+
+	struct FGuid {
+		float A, B, C, D;
 	};
 }
 
@@ -287,60 +337,62 @@ namespace Finder {
 #include <sstream>
 void DumpObjects() {
 #ifndef DEBUG
-	return;
+	//return;
 #endif
 	std::ofstream log("Objects.txt");
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
+		if (!Object) continue;
 		std::string ObjName = Object->GetName();
 		std::string item = "\nClass: " + Object->Class->GetName() + " Name: " + ObjName;
 		log << item;
 	}
 }
 
-
-enum class ESpawnActorCollisionHandlingMethod : uint8_t
-{
-	Undefined = 0,
-	AlwaysSpawn = 1,
-	AdjustIfPossibleButAlwaysSpawn = 2,
-	AdjustIfPossibleButDontSpawnIfColliding = 3,
-	DontSpawnIfColliding = 4,
-	ESpawnActorCollisionHandlingMethod_MAX = 5
+struct FFastArraySerializerItem {
+	int ReplicationID;
+	int ReplicationKey;
+	int MostRecentArrayReplicationKey;
 };
 
-struct FActorSpawnParameters
-{
-	FActorSpawnParameters() : Name(), Template(nullptr), Owner(nullptr), Instigator(nullptr), OverrideLevel(nullptr), SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::AlwaysSpawn), bRemoteOwned(0), bNoFail(1),
-		bDeferConstruction(0),
-		bAllowDuringConstructionScript(1),
-		ObjectFlags(),
-		bNoCollisionFail(1)
+struct FFastArraySerializer {
+	char ItemMap[0x50];
+	int32_t IDCounter;
+	int32_t ArrayReplicationKey;
+
+	char GuidReferencesMap[0x50];
+
+	int32_t CachedNumItems;
+	int32_t CachedNumItemsToConsiderForWriting;
+
+	void IncrementArrayReplicationKey()
 	{
+		ArrayReplicationKey++;
+
+		if (ArrayReplicationKey == -1)
+			ArrayReplicationKey++;
 	}
-	;
 
-	Unreal::FName Name;
+	void MarkArrayDirty()
+	{
+		IncrementArrayReplicationKey();
 
-	Unreal::UObject* Template;
+		CachedNumItems = -1;
+		CachedNumItemsToConsiderForWriting = -1;
+	}
 
-	Unreal::UObject* Owner;
+	void MarkItemDirty(FFastArraySerializerItem& Item)
+	{
+		if (Item.ReplicationID == -1)
+		{
+			Item.ReplicationID = ++IDCounter;
+			if (IDCounter == -1)
+			{
+				IDCounter++;
+			}
+		}
 
-	Unreal::UObject* Instigator;
-
-	Unreal::UObject* OverrideLevel;
-
-	ESpawnActorCollisionHandlingMethod SpawnCollisionHandlingOverride;
-
-	uint16_t bNoCollisionFail : 1;
-
-	uint16_t bRemoteOwned : 1;
-
-	uint16_t bNoFail : 1;
-
-	uint16_t bDeferConstruction : 1;
-
-	uint16_t bAllowDuringConstructionScript : 1;
-
-	int32_t ObjectFlags;
+		Item.ReplicationKey++;
+		MarkArrayDirty();
+	}
 };

@@ -7,12 +7,11 @@
 #include "MinHook.h"
 #pragma comment(lib,"minhook.lib")
 bool InGame = false;
-Unreal::UObject* (__fastcall*SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, void* Transform, void* SpawnParameters);
 
 #ifdef DEBUG
 std::ofstream SA_Log("SA.txt");
-std::ofstream PE_Log("PE.txt");
 #endif
+std::ofstream PE_Log("PE.txt");
 
 struct FGameplayAbilitySpecDef
 {
@@ -120,10 +119,8 @@ void Setup() {
 	*Finder::Find<bool*>(Globals::GameMode, "bTravelInitiated") = true;
 	*Finder::Find<bool*>(Globals::GameMode, "bWorldIsReady") = true;
 	*Finder::Find<bool*>(Globals::GameMode, "bTeamGame") = true;
-	*Finder::Find<int*>(Globals::GameMode, "ZoneIndex") = 1;
 
 	*Finder::Find<int*>(Globals::GameState, "WorldLevel") = 1;
-	*Finder::Find<uint8_t*>(Globals::GameState, "GameplayState") = 1;
 	*Finder::Find<float*>(Globals::GameState, "GameDifficulty") = 1.0f;
 
 	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_GameplayState"));
@@ -131,7 +128,6 @@ void Setup() {
 
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartPlay"));
-	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_MatchState"));
 
 	*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
 	*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
@@ -153,11 +149,15 @@ namespace Hooks {
 			if (FuncName != "/Script/Engine.Actor:ReceiveBeginPlay" && FuncName != "/Script/Engine.Actor:ReceiveTick" && !FuncName.contains("UserConstructionScript")) {
 				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
+#else
+			if (FuncName != "/Script/Engine.Actor:ReceiveBeginPlay" && FuncName != "/Script/Engine.Actor:ReceiveTick" && !FuncName.contains("UserConstructionScript") && FuncName.contains("/Script/FortniteGame.FortPlayer")) {
+				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
+			}
 #endif
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
 				InGame = true;
-				MessageBoxA(0, "RTSM", "A", MB_OK);
+				MessageBoxA(0, "RTSM", "Alpharium", MB_OK);
 				Setup();
 			}
 
@@ -174,6 +174,10 @@ namespace Hooks {
 				//PawnStuff
 				bRealPawn = true;
 				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide"));
+
+				//Inv (BROKEN)
+				//MessageBoxA(0, "INVENTORY", "KMS", MB_OK);
+				//Functions::Inventory::Setup();
 			}
 
 			if (GetAsyncKeyState(VK_F1) & 0x1) {
@@ -185,7 +189,7 @@ namespace Hooks {
 	}
 
 	//Scuffed Af
-	Unreal::UObject* __fastcall SpawnActor_Hk(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, void* Transform, void* SpawnParameters) {
+	Unreal::UObject* __fastcall SpawnActor_Hk(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Transform, FActorSpawnParameters* SpawnParameters) {
 		static auto PlayerStateClass = ("/Script/FortniteGame.FortPlayerState");
 		static auto PlayerControllerClass = ("/Script/FortniteGame.FortPlayerController");
 		static auto GameStateClass = ("/Script/FortniteGame.FortGameState");
@@ -216,6 +220,17 @@ namespace Hooks {
 		}
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
 		else if (ClassName == GameStateClass) Globals::GameState= ret;
+
+		if (!GParms) {
+			GParms = SpawnParameters;
+			GParms->Name = Unreal::FName();
+			GParms->OverrideLevel = GParms->Instigator = GParms->Template = nullptr;
+		}
+
+		if (!GTrans) {
+			GTrans = Transform;
+		}
+
 		return ret;
 	}
 }
