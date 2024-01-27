@@ -8,6 +8,10 @@ namespace Unreal {
 
 	template <class T> struct TArray {
 		TArray() { Data = nullptr; Max = Count = 0; }; //Default TArray Constructor (creates an empty TArray)
+		TArray(int32_t Size)
+			:Count(0), Max(Size), Data(reinterpret_cast<T*>(malloc(sizeof(T)* Size)))
+		{
+		}
 
 		//Returns number of elements in the TArray
 		int Num() {
@@ -26,9 +30,9 @@ namespace Unreal {
 
 		//Add a new Value into the TArray
 		void Add(T NewValue) {
-			Data = (T*)realloc(Data, (sizeof(T) * (Count++)));
-			Data[Count] = NewValue;
-			Max = Count;
+			Data = (T*)realloc(Data, (sizeof(T) * (Count + 1)));
+			Data[Count++] = NewValue;
+			Max++;
 		}
 
 		T* Data; //The Data Entrys stored in the array
@@ -255,7 +259,17 @@ namespace Unreal {
 	};
 
 	struct FGuid {
-		float A, B, C, D;
+		int A, B, C, D;
+	};
+
+	template<class T>
+	struct TWeakObjectPtr {
+		int32_t ObjectIndex;
+		int32_t ObjectSerialNumber;
+
+		T* Get() {
+			return (T*)GObjs->ObjObject.Objects[ObjectIndex].Object;
+		}
 	};
 }
 
@@ -337,7 +351,7 @@ namespace Finder {
 #include <sstream>
 void DumpObjects() {
 #ifndef DEBUG
-	//return;
+	return;
 #endif
 	std::ofstream log("Objects.txt");
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
@@ -356,16 +370,17 @@ struct FFastArraySerializerItem {
 };
 
 struct FFastArraySerializer {
-	char ItemMap[0x50];
+	unsigned char UKD_00[0x80];
+	/*char ItemMap[0x50];
 	int32_t IDCounter;
 	int32_t ArrayReplicationKey;
 
 	char GuidReferencesMap[0x50];
 
 	int32_t CachedNumItems;
-	int32_t CachedNumItemsToConsiderForWriting;
+	int32_t CachedNumItemsToConsiderForWriting;*/
 
-	void IncrementArrayReplicationKey()
+	/*void IncrementArrayReplicationKey()
 	{
 		ArrayReplicationKey++;
 
@@ -394,5 +409,16 @@ struct FFastArraySerializer {
 
 		Item.ReplicationKey++;
 		MarkArrayDirty();
-	}
+	}*/
+};
+
+struct BitField {
+	uint8_t A : 1;
+	uint8_t B : 1;
+	uint8_t C : 1;
+	uint8_t D : 1;
+	uint8_t E : 1;
+	uint8_t F : 1;
+	uint8_t G : 1;
+	uint8_t H : 1;
 };
