@@ -184,11 +184,7 @@ namespace Hooks {
 		if (_Obj->IsValid() && Func->IsValid() && Ready) {
 			std::string FuncName = Func->GetName();
 #ifdef DEBUG
-			if (!FuncName.contains(":Receive") && !FuncName.contains("BuildingActor:") && !FuncName.contains("BuildingSMActor:") && !FuncName.contains("K2Node") && !FuncName.contains("ExecuteUbergraph") && !FuncName.contains("FortDayNightLightingAndFog:") && !FuncName.contains("AnimInstance") && !FuncName.contains(":Blueprint") && !FuncName.contains("EvaluateGraph") && !FuncName.contains(".CharacterMesh") && !FuncName.contains("BlueprintModify") && !FuncName.contains("/Script/Engine.HUD") && !FuncName.contains("OnMatchStarted") && !FuncName.contains("Construct") && !FuncName.contains("/Script/UMG.") && !FuncName.contains("/Game/UI/")) {
-				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
-			}
-#else
-			if (FuncName != "/Script/Engine.Actor:ReceiveBeginPlay" && FuncName != "/Script/Engine.Actor:ReceiveTick" && !FuncName.contains("UserConstructionScript") && FuncName.contains("/Script/FortniteGame.FortPlayer")) {
+			if (!FuncName.contains(":Receive") && !FuncName.contains("ServerTriggerCombatEvent") && !FuncName.contains("ActorBlueprints") && !FuncName.contains("ServerFireAIDirectorEvent") && !FuncName.contains("BuildingActor:") && !FuncName.contains(":ReadyTo") && !FuncName.contains("BuildingSMActor:") && !FuncName.contains("K2Node") && !FuncName.contains("ExecuteUbergraph") && !FuncName.contains("FortDayNightLightingAndFog:") && !FuncName.contains("AnimInstance") && !FuncName.contains(":Blueprint") && !FuncName.contains("EvaluateGraph") && !FuncName.contains(".CharacterMesh") && !FuncName.contains("BlueprintModify") && !FuncName.contains("/Script/Engine.HUD") && !FuncName.contains("OnMatchStarted") && !FuncName.contains("Construct") && !FuncName.contains("/Script/UMG.") && !FuncName.contains("/Game/UI/")) {
 				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
 #endif
@@ -221,7 +217,7 @@ namespace Hooks {
 			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct" && !bRealPawn) {
 				//PawnStuff
 				bRealPawn = true;
-				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide"));
+				//Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide"));
 
 				Functions::GetPC();
 				//Inv
@@ -230,9 +226,28 @@ namespace Hooks {
 				Functions::Inventory::AddBaseItems();
 			}
 
-			if (GetAsyncKeyState(VK_F1) & 0x1) {
-				DumpObjects();
-				Sleep(1000);
+			if (FuncName == "/Script/FortniteGame.FortQuickBars:ServerActivateSlotInternal") {
+				//ClientExecuteInventoryItem
+				Functions::GetPC();
+				struct SAS_P{
+					uint8_t QB;
+					int Slot;
+					float AcivateDelay;
+				};
+
+				SAS_P* InParams = reinterpret_cast<SAS_P*>(Params);
+
+				/*struct {
+					Unreal::FGuid IGUID;
+					float Delay;
+				}p{ Functions::Inventory::GetItemGUID((bool)InParams->QB, InParams->Slot), InParams->AcivateDelay};
+				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ClientExecuteInventoryItem"), &p);*/
+				Unreal::FGuid ItemGUID = Functions::Inventory::GetItemGUID((bool)InParams->QB, InParams->Slot);
+				Functions::Inventory::Equip(Functions::Inventory::GetItemFromGUID(ItemGUID), ItemGUID);
+			}
+
+			if (FuncName == "/Script/FortniteGame.FortPawn:OnWeaponEquipped") {
+				//KMS
 			}
 		}
 		else if (!Ready) {
@@ -259,6 +274,9 @@ namespace Core {
 		Unreal::GetPathName = decltype(Unreal::GetPathName)(Memory::GetAddressFromOffset(0x132C790));
 		Unreal::Free = decltype(Unreal::Free)(Memory::GetAddressFromOffset(0x89CAD0));
 		Unreal::SLO = decltype(Unreal::SLO)(Memory::GetAddressFromOffset(0x9AFBD0));
+
+		Functions::Inventory::EquipWeaponData = decltype(Functions::Inventory::EquipWeaponData)(Memory::GetAddressFromOffset(0x40A8D0));
+
 		Globals::GEngine = FindObject("/Engine/Transient.FortEngine_0");
 		Functions::GetPC();
 		if (MH_Initialize() != MH_STATUS::MH_OK) {

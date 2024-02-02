@@ -35,6 +35,11 @@ namespace Unreal {
 			Max++;
 		}
 
+		T At(int i) {
+			if (!IsValid(i)) return T();
+			return Data[i];
+		}
+
 		T* Data; //The Data Entrys stored in the array
 		int Count; //The Current number of Elements
 		int Max; //The Max number of Elements
@@ -260,6 +265,15 @@ namespace Unreal {
 
 	struct FGuid {
 		int A, B, C, D;
+
+		FGuid() {
+			A = B = C = D = 0;
+		}
+
+		inline bool operator== (const FGuid GB)
+		{
+			return A == GB.A && B == GB.B && C == GB.C && D == GB.D;
+		}
 	};
 
 	template<class T>
@@ -292,6 +306,11 @@ namespace Finder {
 		return reinterpret_cast<T>(DWORD(Object) + GetOffset(Prop));
 	}
 
+	template<class T = Unreal::UObject**>
+	T GetValue(UObject* Object,int Offset) {
+		return reinterpret_cast<T>((DWORD(Object) + Offset));
+	}
+
 	int GetPropByClass(Unreal::UObject* TargetClass, std::string TargetChildName) {
 		UObject* Prop = nullptr;
 		UStruct* Class = (UStruct*)TargetClass;
@@ -311,7 +330,12 @@ namespace Finder {
 				Struct = Struct->Super;
 			}
 		}
-		return GetOffset(Prop);
+		if (Prop->IsValid()) {
+			return GetOffset(Prop);
+		}
+		else {
+			return 0;
+		}
 	}
 
 	template<class T = Unreal::UObject**>
@@ -350,7 +374,7 @@ namespace Finder {
 #include <fstream>
 #include <sstream>
 void DumpObjects() {
-#ifndef DEBUG
+#ifdef DEBUG
 	return;
 #endif
 	std::ofstream log("Objects.txt");

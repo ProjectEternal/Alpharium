@@ -40,6 +40,7 @@ namespace Functions {
 		return params.Ret;
 	}
 	
+	//Return Value is not always accurate
 	Unreal::UObject* SpawnActor(std::wstring Class) {
 		GetPC();
 		struct {
@@ -48,43 +49,10 @@ namespace Functions {
 		params.Cmd = Class.c_str();//std::wstring(Class.begin(), Class.end()).c_str();
 		(*Finder::Find(Globals::GPC, "CheatManager"))->ProcessEvent(FindObject("/Script/Engine.CheatManager:Summon"), &params);
 
+		//Not Accurate
 		return FindObject(std::string(Class.begin(), Class.end()) + "_", false);
-		/*auto Trans = GTrans;
-		Trans->Translation = Loc;
-		GParms->Owner = Owner;
-		return SpawnActor_OG(GetWorld(), Class, Class, Trans, GParms);*/
-		/*Unreal::UObject* GPS = FindObject("/Script/Engine.Default__GameplayStatics");
-		struct {
-			Unreal::UObject* World;
-			Unreal::UObject* Class;
-			Unreal::FTransform Trans;
-			bool bFail;
-			Unreal::UObject* Owner;
-			Unreal::UObject* Ret;
-		}p1{ GetWorld(), Class, Trans,true, Owner, nullptr };
-
-		GPS->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:BeginSpawningActorFromClass"), &p1);
-
-
-
-		if (p1.Ret) {
-			struct {
-				Unreal::UObject* In;
-				Unreal::FTransform Trans;
-				Unreal::UObject* Ret;
-			}p2{ p1.Ret,Trans,nullptr };
-
-			GPS->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:FinishSpawningActor"), &p2);
-
-			if (!p2.Ret) p2.Ret = p1.Ret;
-
-			return p2.Ret;
-		}
-		else {
-			MessageBoxA(0, "SA Failed!", MB_OK,0);
-			return nullptr;
-		}*/
 	}
+
 	//Enables UE Console
 	void SetupConsole() {
 		struct {
@@ -118,13 +86,14 @@ namespace Functions {
 	}
 
 	namespace Kismet {
-
 		Unreal::FName String2Name(Unreal::FString Str) {
 			struct {
 				Unreal::FString InStr;
 				Unreal::FName Ret;
 			} params{ Str };
 			FindObject("/Script/Engine.Default__KismetStringLibrary")->ProcessEvent(FindObject("/Script/Engine.KismetStringLibrary:Conv_StringToName"), &params);
+
+			return params.Ret;
 		}
 	}
 
@@ -198,11 +167,12 @@ namespace Functions {
 			}
 		}
 
+		//This would fix Hero Level and Homebase shit
 		void FixTeamInfo() {
 			FortTeamMemberInfo TeamInfo;
 			FindObject("/Engine/Transient.FortEngine_0:FortLocalPlayer_0.FortPartyContext_0")->ProcessEvent(FindObject("/Script/FortniteGame.FortPartyContext:GetLocalPlayerTeamMemberInfo"), &TeamInfo);
 
-			//TeamInfo.
+			//TeamInfo (Too Lazy)
 		}
 
 		void DestroyTT() {
@@ -271,26 +241,42 @@ namespace Functions {
 				this->ItemInstances = Unreal::TArray<Unreal::UObject*>(6);
 			}
 		};
+		
+		struct FQuickBarSlotData {
+			unsigned char Size[0x28];
+		};
+
+		struct FQuickBarSlot {
+			Unreal::TArray<Unreal::FGuid> Items;
+		};
+		
+		struct FQuickBarData {
+			Unreal::TArray<FQuickBarSlotData> QuickbarSlots;
+		};
+
+		struct FQuickBar {
+			int CurrentSlot;
+			int PrevSlot;
+			Unreal::TArray<FQuickBarSlot> Slots;
+			FQuickBarData DataDefinition;
+		};
 
 		void Update() {
 			GetPC();
 			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
 			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
 
-			MessageBoxA(0, "HandleInventoryLocalUpdate", "KMS1", MB_OK);
 			Inv->ProcessEvent(FindObject("/Script/FortniteGame.FortInventory:HandleInventoryLocalUpdate"));
 
-			MessageBoxA(0, "HandleWorldInventoryLocalUpdate", "KMS2", MB_OK);
 			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:HandleWorldInventoryLocalUpdate"));
 
 			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_QuickBar"));
 
-			MessageBoxA(0, "OnRep_PrimaryQuickBar", "KMS3", MB_OK);
 			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:OnRep_PrimaryQuickBar"));
 
-			MessageBoxA(0, "OnRep_SecondaryQuickBar", "KMS4", MB_OK);
 			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:OnRep_SecondaryQuickBar"));
 
+			//MP Shit
 			//Finder::Find<FFortItemList*>(Inv, "Inventory")->MarkArrayDirty();
 		}
 
@@ -313,8 +299,6 @@ namespace Functions {
 			}p1{ ItemGUID,Quickbar,Slot};
 			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
 			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:ServerAddItemInternal"), &p1);
-
-			Update();
 		}
 
 		void AddBaseItems() {
@@ -324,13 +308,44 @@ namespace Functions {
 			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Floor.BuildingItemData_Floor"), 1, 1, 1);
 			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Stair_W.BuildingItemData_Stair_W"), 2, 1, 1);
 			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_RoofS.BuildingItemData_RoofS"), 3, 1, 1);
+
+			AddItem(FindObject("/Game/Weapons/WeaponItemData/Melee/Melee_Impact_Pickaxe_T02.Melee_Impact_Pickaxe_T02"), 0);
+
+			Update();
+		}
+
+		Unreal::FGuid GetItemGUID(bool isSecondary, int Slot) {
+			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+			FQuickBar* FQB = ((isSecondary) ? (Finder::Find<FQuickBar*>(QB, "SecondaryQuickBar")) : ((Finder::Find<FQuickBar*>(QB, "PrimaryQuickBar"))));
+
+			return FQB->Slots.At(Slot).Items.At(0);
+		}
+
+		Unreal::UObject* GetItemFromGUID(Unreal::FGuid GUID) {
+			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
+
+			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
+				FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
+				if (Entry.ItemGuid == GUID) return Entry.ItemDefinition;
+			}
+		}
+
+		Unreal::UObject* (__thiscall* EquipWeaponData)(Unreal::UObject*, Unreal::UObject*, Unreal::FGuid);
+
+		void Equip(Unreal::UObject* ItemDef, Unreal::FGuid ItemGUID = Unreal::FGuid()) {
+			//AFortWeapon* AFortPawn::EquipWeaponData(UFortItemDefinition*, FGuid) 0x40A8D0
+			uint8_t* Role = Finder::Find<uint8_t*>(Globals::GPawn, "Role");
+			uint8_t OldRole = *Role;
+			*Role = 3;
+			Unreal::UObject* FortWeapon = EquipWeaponData(Globals::GPawn, ItemDef, ItemGUID);//reinterpret_cast<Unreal::UObject*(*)(Unreal::UObject*, Unreal::UObject*, Unreal::FGuid)>(Memory::GetAddressFromOffset(0x40A8D0))(Globals::GPawn, ItemDef, ItemGUID);
+			*Role = OldRole;
 		}
 
 		void Setup() {
 			GetPC();
 			*Finder::Find<int*>(Globals::GPC, "OverriddenBackpackSize") = 999;
-			SpawnActor(L"FortInventory");
-			Unreal::UObject* Inv = FindObject("FortInventory_2", false);
+			Unreal::UObject* Inv = FindObject("FortInventory_1", false);
 			FFortItemList ItemList = FFortItemList();
 			ItemList.Init();
 			*Finder::Find<FFortItemList*>(Inv, "Inventory") = ItemList;
@@ -339,7 +354,6 @@ namespace Functions {
 			SpawnActor(L"FortQuickBars");
 			Unreal::UObject* QB = FindObject("FortQuickBars_0", false);
 			QB->ProcessEvent(FindObject("/Script/Engine.Actor:SetOwner"), &Globals::GPC);
-			DumpObjects();
 			*Finder::Find(Globals::GPC, "QuickBars") = QB;
 			Update();
 
