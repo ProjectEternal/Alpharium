@@ -103,9 +103,12 @@ void SetupPawn() {
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenDelay"));
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenRate"));
 
-		//Spring and Jumping
+		//bilities
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Jump"));
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Sprint"));
+		GrantAbility(Unreal::StaticLoadObject(L"/Game/Abilities/Player/Generic/Traits/DefaultPlayer/GA_DefaultPlayer_InteractSearch.GA_DefaultPlayer_InteractSearch_C", FindObject("/Script/Engine.BlueprintGeneratedClass")));
+		GrantAbility(Unreal::StaticLoadObject(L"/Game/Abilities/Player/Generic/Traits/DefaultPlayer/GA_DefaultPlayer_InteractUse.GA_DefaultPlayer_InteractUse_C", FindObject("/Script/Engine.BlueprintGeneratedClass")));
+		GrantAbility(Unreal::StaticLoadObject(L"/Game/Abilities/Player/Generic/Traits/DefaultPlayer/GA_DefaultPlayer_Consumable.GA_DefaultPlayer_Consumable_C", FindObject("/Script/Engine.BlueprintGeneratedClass")));
 
 		//Show Map
 		CM->ProcessEvent(FindObject("/Script/FortniteGame.FortCheatManager:UncoverMap"));
@@ -191,7 +194,7 @@ namespace Hooks {
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
 				InGame = true;
-				MessageBoxA(0, "RTSM", "Alpharium", MB_OK);
+				Sleep(1000);
 				Setup();
 			}
 
@@ -227,7 +230,14 @@ namespace Hooks {
 			//Inventory
 			if (FuncName == "/Game/Effects/Fort_Effects/Gameplay/Pickups/B_Pickups.B_Pickups_C:OnAboutToEnterBackpack") {
 				Unreal::UObject* Def = *Finder::Find(_Obj, "ItemDefinition");
-				if (Def->IsValid()) Functions::Inventory::AddItem(Def, 0,1,1);
+				int Count = 1;
+				if (Def->IsValid()) { 
+					std::string ClassName = Def->Class->GetName();
+					//TODO: Find another function
+					if (ClassName == "/Script/FortniteGame.FortResourceItemDefinition") Count = 10;
+					Functions::Inventory::AddItem(Def, 0, Count, 1);
+					Functions::Inventory::Update();
+				}
 			}
 
 			if (FuncName == "/Script/FortniteGame.FortQuickBars:ServerActivateSlotInternal") {

@@ -39,6 +39,19 @@ namespace Unreal {
 			Max++;
 		}
 
+		void Remove(int Index) {
+			if (!IsValid(Index)) return;
+			if (Index < Count)
+			{
+				if (Index != Count - 1)
+				{
+					Data[Index] = Data[Count - 1];
+				}
+
+				--Count;
+			}
+		}
+
 		T At(int i) {
 			if (!IsValid(i)) return T();
 			return Data[i];
@@ -179,7 +192,11 @@ namespace Unreal {
 		uint8_t UnknownData01[0x4];
 	};
 
-	UObject* (*SLO)(UObject*, UObject*, const TCHAR*, const TCHAR*, uint32_t, UObject*, bool);
+	UObject* (__cdecl*SLO)(UObject*Class, UObject*Outer, const TCHAR* Name, const TCHAR* Fn, uint32_t Flags, UObject*, bool bAllowObjectReconciliation);
+
+	UObject* StaticLoadObject(const wchar_t* Name, UObject* Class) {
+		return SLO(Class, nullptr, Name, L"", 0, nullptr, true);
+	}
 }
 
 enum class ESpawnActorCollisionHandlingMethod : uint8_t
@@ -233,11 +250,27 @@ Unreal::FTransform* GTrans;
 
 Unreal::FUObjectArray* GObjs; //Global UObject Array
 Unreal::UObject* (__fastcall* SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Transform, FActorSpawnParameters* Params);
+
+struct CacheObj {
+	Unreal::UObject* Obj;
+	std::string Name;
+};
+
+std::vector<CacheObj> OCache;
+
 Unreal::UObject* FindObject(std::string TargetName, bool Exact = true, bool bLog = true) {
+	//Cache
+	for (CacheObj Obj : OCache) {
+		if (Obj.Name == TargetName) {
+			return Obj.Obj;
+		}
+	}
+	//Search
 	for (int i = 0; i < GObjs->ObjObject.Num; i++) {
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
 
 		if (Object->IsValid() && (Exact ? (Object->GetName() == TargetName) : (Object->GetName().contains(TargetName)))) {
+			OCache.push_back({ Object, TargetName });
 			return Object;
 		}
 	}

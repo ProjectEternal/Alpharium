@@ -280,14 +280,60 @@ namespace Functions {
 			//Finder::Find<FFortItemList*>(Inv, "Inventory")->MarkArrayDirty();
 		}
 
+		/*void Stack(Unreal::UObject* ItemDef, int Num) {
+			GetPC();
+			if (!ItemDef) return;
+			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
+
+			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
+				FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
+				if (Entry.ItemDefinition == ItemDef) {
+					Entry.Count += Num;
+				}
+			}
+
+			Update();
+		}*/
+
+		void RemoveItem(Unreal::FGuid GUID) {
+			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
+			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
+				FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
+				if (Entry.ItemGuid == GUID) {
+					ItemList->ReplicatedEntries.Remove(i);
+				}
+			}
+
+			for (int i = 0; i < ItemList->ItemInstances.Num(); i++) {
+				FFortItemEntry Entry = *Finder::Find<FFortItemEntry*>(ItemList->ItemInstances.At(i), "ItemEntry");
+				if (Entry.ItemGuid == GUID) {
+					ItemList->ItemInstances.Remove(i);
+				}
+			}
+		}
+
 		void AddItem(Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0) {
 			GetPC();
 			if (!ItemDef) return;
 			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
+			//Stacking
+			std::string ItemClassName = ItemDef->Class->GetName();
+			if (ItemClassName == "/Script/FortniteGame.FortResourceItemDefinition" || ItemClassName == "/Script/FortniteGame.FortAmmoItemDefinition" || ItemClassName == "/Script/FortniteGame.FortConsumableItemDefinition" || ItemClassName == "/Script/FortniteGame.FortIngredientItemDefinition") {
+				for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
+					FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
+					if (Entry.ItemDefinition == ItemDef) {
+						int NewCount = Entry.Count + Count;
+						RemoveItem(Entry.ItemGuid);
+						AddItem(ItemDef, Slot, NewCount, Quickbar);
+						return;
+					}
+				}
+			}
 			Unreal::UObject* Item;
 			ItemDef->ProcessEvent(FindObject("/Script/FortniteGame.FortItemDefinition:CreateTemporaryItemInstanceBP"), &Item);
-
-			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
 			ItemList->ItemInstances.Add(Item);
 			ItemList->ReplicatedEntries.Add(*Finder::Find<FFortItemEntry*>(Item, "ItemEntry"));
 			Unreal::FGuid ItemGUID;
@@ -334,12 +380,12 @@ namespace Functions {
 		Unreal::UObject* (__thiscall* EquipWeaponData)(Unreal::UObject*, Unreal::UObject*, Unreal::FGuid);
 
 		void Equip(Unreal::UObject* ItemDef, Unreal::FGuid ItemGUID = Unreal::FGuid()) {
-			//AFortWeapon* AFortPawn::EquipWeaponData(UFortItemDefinition*, FGuid) 0x40A8D0
-			uint8_t* Role = Finder::Find<uint8_t*>(Globals::GPawn, "Role");
-			uint8_t OldRole = *Role;
-			*Role = 3;
-			Unreal::UObject* FortWeapon = EquipWeaponData(Globals::GPawn, ItemDef, ItemGUID);//reinterpret_cast<Unreal::UObject*(*)(Unreal::UObject*, Unreal::UObject*, Unreal::FGuid)>(Memory::GetAddressFromOffset(0x40A8D0))(Globals::GPawn, ItemDef, ItemGUID);
-			*Role = OldRole;
+			Unreal::UObject* FortWeapon = EquipWeaponData(Globals::GPawn, ItemDef, ItemGUID);
+
+			if (FortWeapon && FortWeapon->Class && FortWeapon->Class->GetName() == "/Game/Weapons/FORT_BuildingTools/Blueprints/DefaultBuildingTool.DefaultBuildingTool_C") {
+				*Finder::Find(FortWeapon, "DefaultMetadata") = *Finder::Find(ItemDef, "BuildingMetaData");
+				FortWeapon->ProcessEvent(FindObject("/Script/FortniteGame.FortWeap_BuildingTool:OnRep_DefaultMetadata"));
+			}
 		}
 
 		void Setup() {
