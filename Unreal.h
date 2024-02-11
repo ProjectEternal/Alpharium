@@ -1,5 +1,9 @@
 #pragma once
 #include "pch.h"
+#include <iostream>
+#include <ostream>
+#include <fstream>
+#include <sstream>
 
 namespace Unreal {
 	void(__cdecl* Free)(void* buf);
@@ -289,7 +293,22 @@ namespace Unreal {
 
 namespace Finder {
 	using namespace Unreal;
+	struct CacheProp{
+		Unreal::UObject* Class;
+		std::string Name;
+		int Offset;
+	};
+	std::vector<CacheProp> Cache;
+
+	void DumpCache() {
+		std::ofstream Log("FinderCache.log");
+		for (CacheProp Obj : Cache) {
+			Log << "ClassName: " << Obj.Class->GetName() << " PropName: " << Obj.Name << " Offset: " << std::to_string(Obj.Offset) << "\n";
+		}
+	}
+
 	UObject* FindChild(Unreal::UObject* InObject, std::string PropName) {
+		//Search
 		UObject* Prop = FindObject(InObject->GetName() + ":" + PropName, true, false);
 		if (Prop->IsValid()) {
 			return Prop;
@@ -342,6 +361,13 @@ namespace Finder {
 	T Find(UObject* TargetObject, std::string TargetChildName) {
 		UObject* Prop = nullptr;
 		UStruct* Class = (UStruct*)TargetObject->Class;
+		//Cache
+		for (CacheProp Obj : Cache) {
+			if (Obj.Class == Class && Obj.Name == TargetChildName) {
+				return GetValue<T>(TargetObject, Obj.Offset);
+			}
+		}
+		//Search
 		if (Class->Children) {
 			Prop = FindChild(Class, TargetChildName);
 		}
@@ -359,6 +385,7 @@ namespace Finder {
 			}
 		}
 		if (Prop->IsValid()) {
+			Cache.push_back({ Class, TargetChildName, GetOffset(Prop) });
 			return GetValuePointer<T>(TargetObject, Prop);
 		}
 		else {
@@ -369,12 +396,8 @@ namespace Finder {
 	}
 }
 
-#include <iostream>
-#include <ostream>
-#include <fstream>
-#include <sstream>
 void DumpObjects() {
-#ifdef DEBUG
+#ifndef DEBUG
 	return;
 #endif
 	std::ofstream log("Objects.txt");

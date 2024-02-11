@@ -199,15 +199,13 @@ namespace Hooks {
 				std::string Str = reinterpret_cast<Unreal::FString*>(Params)->ToString();
 
 				//TODO
-				if (Str == "inv") {
+				if (Str == "qb") {
 					//Inv (BROKEN)
-					Functions::GetPC();
-					Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ToggleInventory"));
+					Functions::Inventory::Update();
 				}
 				
-				if (Str == "inv2") {
-					//Inv (BROKEN)
-					Functions::Inventory::AddItem(FindObject("/Game/Weapons/WeaponItemData/Assault/Assault_Auto_T09.Assault_Auto_T09"), 1);
+				if (Str == "findercache") {
+					Finder::DumpCache();
 				}
 
 				return 0;
@@ -217,7 +215,7 @@ namespace Hooks {
 			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct" && !bRealPawn) {
 				//PawnStuff
 				bRealPawn = true;
-				//Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide"));
+				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide")); //Fixes Weird Movement Shit
 
 				Functions::GetPC();
 				//Inv
@@ -226,8 +224,13 @@ namespace Hooks {
 				Functions::Inventory::AddBaseItems();
 			}
 
+			//Inventory
+			if (FuncName == "/Game/Effects/Fort_Effects/Gameplay/Pickups/B_Pickups.B_Pickups_C:OnAboutToEnterBackpack") {
+				Unreal::UObject* Def = *Finder::Find(_Obj, "ItemDefinition");
+				if (Def->IsValid()) Functions::Inventory::AddItem(Def, 0,1,1);
+			}
+
 			if (FuncName == "/Script/FortniteGame.FortQuickBars:ServerActivateSlotInternal") {
-				//ClientExecuteInventoryItem
 				Functions::GetPC();
 				struct SAS_P{
 					uint8_t QB;
@@ -237,17 +240,8 @@ namespace Hooks {
 
 				SAS_P* InParams = reinterpret_cast<SAS_P*>(Params);
 
-				/*struct {
-					Unreal::FGuid IGUID;
-					float Delay;
-				}p{ Functions::Inventory::GetItemGUID((bool)InParams->QB, InParams->Slot), InParams->AcivateDelay};
-				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ClientExecuteInventoryItem"), &p);*/
 				Unreal::FGuid ItemGUID = Functions::Inventory::GetItemGUID((bool)InParams->QB, InParams->Slot);
 				Functions::Inventory::Equip(Functions::Inventory::GetItemFromGUID(ItemGUID), ItemGUID);
-			}
-
-			if (FuncName == "/Script/FortniteGame.FortPawn:OnWeaponEquipped") {
-				//KMS
 			}
 		}
 		else if (!Ready) {
