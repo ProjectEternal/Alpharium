@@ -38,6 +38,9 @@
     <ClInclude Include="MinHook.h">
       <Filter>Main Files</Filter>
     </ClInclude>
+    <ClInclude Include="Offsets.h">
+      <Filter>Main Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">

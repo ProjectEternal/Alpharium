@@ -75,7 +75,7 @@ namespace Memory {
 	{
 		if (Sig == "")
 			return 0;
-		std::cout << "\nFinding Address for " << Name << "!" << std::endl;
+		LOG("Finding Address for " + std::string(Name) + "!");
 		uintptr_t Addr = SigScan(Sig);
 		return Addr;
 	}
@@ -84,7 +84,7 @@ namespace Memory {
 	{
 		if (Sig == "")
 			return 0;
-		std::cout << "\nFinding Address for " << Name << "!" << std::endl;
+		LOG("Finding Address for " + std::string(Name) + "!");
 		uintptr_t Addr = SigScan(Sig, true, ROffset);
 		return Addr;
 	}

@@ -4,8 +4,6 @@
 
 namespace Globals {
 	Unreal::UObject* GEngine; //Global FortEngine
-	Unreal::UObject* GPC; //Global PlayerController
-	Unreal::UObject* GPawn; //Global PlayerPawn
 
 	Unreal::UObject* GameMode; //GameMode
 	Unreal::UObject* GameState; //GameState
@@ -13,10 +11,10 @@ namespace Globals {
 
 namespace Functions {
 	//Gets Player Controller
-	void GetPC() {
+	Unreal::UObject* GetLocalPC() {
 		auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
 		auto Player = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Data[0];
-		Globals::GPC = *Finder::Find(Player, "PlayerController");
+		return *Finder::Find(Player, "PlayerController");
 	}
 
 	Unreal::UObject* GetWorld() {
@@ -40,17 +38,27 @@ namespace Functions {
 		return params.Ret;
 	}
 	
-	//Return Value is not always accurate
-	Unreal::UObject* SpawnActor(std::wstring Class) {
-		GetPC();
-		struct {
-			Unreal::FString Cmd;
-		} params;
-		params.Cmd = Class.c_str();//std::wstring(Class.begin(), Class.end()).c_str();
-		(*Finder::Find(Globals::GPC, "CheatManager"))->ProcessEvent(FindObject("/Script/Engine.CheatManager:Summon"), &params);
+	Unreal::UObject* (__fastcall* SpawnActor_Vectored)(Unreal::UObject* World, void* Idk, Unreal::UObject* Class, Unreal::FVector* Loc, Unreal::FVector* Rot, const FActorSpawnParameters& SpawnParams);
 
-		//Not Accurate
-		return FindObject(std::string(Class.begin(), Class.end()) + "_", false);
+	//TODO
+	Unreal::UObject* SpawnActor(Unreal::UObject* Class, Unreal::FVector Loc = Unreal::FVector(1, 1, 10000), Unreal::FVector Rot = Unreal::FVector(1,1,1)) {
+		return SpawnActor_Vectored(GetWorld(), GetWorld(), Class, &Loc, &Rot, FActorSpawnParameters());
+	}
+
+	//Grants CheatManager
+	void SetupCM(Unreal::UObject* PC = GetLocalPC()) {
+		struct {
+			Unreal::UObject* TargetClass;
+			Unreal::UObject* Outer;
+			Unreal::UObject* Ret;
+		} params;
+
+		params.TargetClass = FindObject("/Script/FortniteGame.FortCheatManager"); //Engine CheatManager doesn't have CheatScript
+		params.Outer = PC;
+
+		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
+
+		*Finder::Find(PC, "CheatManager") = params.Ret;
 	}
 
 	//Enables UE Console
@@ -66,23 +74,6 @@ namespace Functions {
 
 		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
 		*Finder::Find(params.Outer, "ViewportConsole") = params.Ret;
-	}
-
-	//Enables CheatManager
-	Unreal::UObject* SetupCM() {
-		struct {
-			Unreal::UObject* TargetClass;
-			Unreal::UObject* Outer;
-			Unreal::UObject* Ret;
-		} params;
-
-		params.TargetClass = FindObject("/Script/FortniteGame.FortCheatManager");
-		params.Outer = Globals::GPC;
-
-		FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:SpawnObject"), &params);
-
-		*Finder::Find(Globals::GPC, "CheatManager") = params.Ret;
-		return params.Ret;
 	}
 
 	namespace Kismet {
@@ -131,8 +122,7 @@ namespace Functions {
 		};
 
 
-		void GiveAllItems() {
-			GetPC();
+		void GiveAllItems(Unreal::UObject* PC) {
 			Unreal::UObject* Func = FindObject("/Script/FortniteGame.FortPlayerController:ClientGivePlayerLocalAccountItem");
 
 			for (int i = 0; i < GObjs->ObjObject.Num; i++) {
@@ -149,7 +139,7 @@ namespace Functions {
 							int Count;
 						} Parms{ Object, 1 };
 
-						Globals::GPC->ProcessEvent(Func, &Parms);
+						PC->ProcessEvent(Func, &Parms);
 					}
 				}
 			}
@@ -190,10 +180,10 @@ namespace Functions {
 		}
 
 		void Setup() {
-			GiveAllItems();
-			DestroyTT();
-			SetupHero();
-			*Finder::Find<bool*>(Globals::GPC, "bTutorialCompleted") = true;
+			//GiveAllItems();
+			//DestroyTT();
+			//SetupHero();
+			//*Finder::Find<bool*>(Globals::GPC, "bTutorialCompleted") = true;
 		}
 	}
 
@@ -261,16 +251,15 @@ namespace Functions {
 			FQuickBarData DataDefinition;
 		};
 
-		void Update() {
-			GetPC();
-			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
-			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+		void Update(Unreal::UObject* PC) {
+			Unreal::UObject* Inv = *Finder::Find(PC, "WorldInventory");
+			Unreal::UObject* QB = *Finder::Find(PC, "QuickBars");
 
 			Inv->ProcessEvent(FindObject("/Script/FortniteGame.FortInventory:HandleInventoryLocalUpdate"));
 
-			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:HandleWorldInventoryLocalUpdate"));
+			PC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:HandleWorldInventoryLocalUpdate"));
 
-			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_QuickBar"));
+			PC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_QuickBar"));
 
 			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:OnRep_PrimaryQuickBar"));
 
@@ -280,24 +269,8 @@ namespace Functions {
 			//Finder::Find<FFortItemList*>(Inv, "Inventory")->MarkArrayDirty();
 		}
 
-		/*void Stack(Unreal::UObject* ItemDef, int Num) {
-			GetPC();
-			if (!ItemDef) return;
-			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
-			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
-
-			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
-				FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
-				if (Entry.ItemDefinition == ItemDef) {
-					Entry.Count += Num;
-				}
-			}
-
-			Update();
-		}*/
-
-		void RemoveItem(Unreal::FGuid GUID) {
-			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+		void RemoveItem(Unreal::UObject* PC, Unreal::FGuid GUID) {
+			Unreal::UObject* Inv = *Finder::Find(PC, "WorldInventory");
 			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
 			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
 				FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
@@ -314,10 +287,9 @@ namespace Functions {
 			}
 		}
 
-		void AddItem(Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0) {
-			GetPC();
+		void AddItem(Unreal::UObject* PC, Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0) {
 			if (!ItemDef) return;
-			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+			Unreal::UObject* Inv = *Finder::Find(PC, "WorldInventory");
 			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
 			//Stacking
 			std::string ItemClassName = ItemDef->Class->GetName();
@@ -326,8 +298,8 @@ namespace Functions {
 					FFortItemEntry Entry = ItemList->ReplicatedEntries.At(i);
 					if (Entry.ItemDefinition == ItemDef) {
 						int NewCount = Entry.Count + Count;
-						RemoveItem(Entry.ItemGuid);
-						AddItem(ItemDef, Slot, NewCount, Quickbar);
+						RemoveItem(PC, Entry.ItemGuid);
+						AddItem(PC, ItemDef, Slot, NewCount, Quickbar);
 						return;
 					}
 				}
@@ -343,32 +315,32 @@ namespace Functions {
 				uint8_t Quickbar;
 				int Slot;
 			}p1{ ItemGUID,Quickbar,Slot};
-			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+			Unreal::UObject* QB = *Finder::Find(PC, "QuickBars");
 			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:ServerAddItemInternal"), &p1);
 		}
 
-		void AddBaseItems() {
-			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/EditTool.EditTool"));
+		void AddBaseItems(Unreal::UObject* PC) {
+			AddItem(PC, FindObject("/Game/Items/Weapons/BuildingTools/EditTool.EditTool"));
 
-			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Wall.BuildingItemData_Wall"), 0, 1, 1);
-			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Floor.BuildingItemData_Floor"), 1, 1, 1);
-			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Stair_W.BuildingItemData_Stair_W"), 2, 1, 1);
-			AddItem(FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_RoofS.BuildingItemData_RoofS"), 3, 1, 1);
+			AddItem(PC, FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Wall.BuildingItemData_Wall"), 0, 1, 1);
+			AddItem(PC, FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Floor.BuildingItemData_Floor"), 1, 1, 1);
+			AddItem(PC, FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_Stair_W.BuildingItemData_Stair_W"), 2, 1, 1);
+			AddItem(PC, FindObject("/Game/Items/Weapons/BuildingTools/BuildingItemData_RoofS.BuildingItemData_RoofS"), 3, 1, 1);
 
-			AddItem(FindObject("/Game/Weapons/WeaponItemData/Melee/Melee_Impact_Pickaxe_T02.Melee_Impact_Pickaxe_T02"), 0);
+			AddItem(PC, FindObject("/Game/Weapons/WeaponItemData/Melee/Melee_Impact_Pickaxe_T02.Melee_Impact_Pickaxe_T02"), 0);
 
-			Update();
+			Update(PC);
 		}
 
-		Unreal::FGuid GetItemGUID(bool isSecondary, int Slot) {
-			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+		Unreal::FGuid GetItemGUID(Unreal::UObject* PC, bool isSecondary, int Slot) {
+			Unreal::UObject* QB = *Finder::Find(PC, "QuickBars");
 			FQuickBar* FQB = ((isSecondary) ? (Finder::Find<FQuickBar*>(QB, "SecondaryQuickBar")) : ((Finder::Find<FQuickBar*>(QB, "PrimaryQuickBar"))));
 
 			return FQB->Slots.At(Slot).Items.At(0);
 		}
 
-		Unreal::UObject* GetItemFromGUID(Unreal::FGuid GUID) {
-			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
+		Unreal::UObject* GetItemFromGUID(Unreal::UObject* PC, Unreal::FGuid GUID) {
+			Unreal::UObject* Inv = *Finder::Find(PC, "WorldInventory");
 			FFortItemList* ItemList = Finder::Find<FFortItemList*>(Inv, "Inventory");
 
 			for (int i = 0; i < ItemList->ReplicatedEntries.Num(); i++) {
@@ -379,8 +351,8 @@ namespace Functions {
 
 		Unreal::UObject* (__thiscall* EquipWeaponData)(Unreal::UObject*, Unreal::UObject*, Unreal::FGuid);
 
-		void Equip(Unreal::UObject* ItemDef, Unreal::FGuid ItemGUID = Unreal::FGuid()) {
-			Unreal::UObject* FortWeapon = EquipWeaponData(Globals::GPawn, ItemDef, ItemGUID);
+		void Equip(Unreal::UObject* Pawn, Unreal::UObject* ItemDef, Unreal::FGuid ItemGUID = Unreal::FGuid()) {
+			Unreal::UObject* FortWeapon = EquipWeaponData(Pawn, ItemDef, ItemGUID);
 
 			if (FortWeapon && FortWeapon->Class && FortWeapon->Class->GetName() == "/Game/Weapons/FORT_BuildingTools/Blueprints/DefaultBuildingTool.DefaultBuildingTool_C") {
 				*Finder::Find(FortWeapon, "DefaultMetadata") = *Finder::Find(ItemDef, "BuildingMetaData");
@@ -388,22 +360,20 @@ namespace Functions {
 			}
 		}
 
-		void Setup() {
-			GetPC();
-			*Finder::Find<int*>(Globals::GPC, "OverriddenBackpackSize") = 999;
-			Unreal::UObject* Inv = FindObject("FortInventory_1", false);
+		void Setup(Unreal::UObject* PC) {
+			*Finder::Find<int*>(PC, "OverriddenBackpackSize") = 999;
+			Unreal::UObject* Inv = SpawnActor(FindObject("/Script/FortniteGame.FortInventory"));
 			FFortItemList ItemList = FFortItemList();
 			ItemList.Init();
 			*Finder::Find<FFortItemList*>(Inv, "Inventory") = ItemList;
-			Inv->ProcessEvent(FindObject("/Script/Engine.Actor:SetOwner"), &Globals::GPC);
-			*Finder::Find(Globals::GPC, "WorldInventory") = Inv;
-			SpawnActor(L"FortQuickBars");
-			Unreal::UObject* QB = FindObject("FortQuickBars_0", false);
-			QB->ProcessEvent(FindObject("/Script/Engine.Actor:SetOwner"), &Globals::GPC);
-			*Finder::Find(Globals::GPC, "QuickBars") = QB;
-			Update();
+			Inv->ProcessEvent(FindObject("/Script/Engine.Actor:SetOwner"), &PC);
+			*Finder::Find(PC, "WorldInventory") = Inv;
+			Unreal::UObject* QB = SpawnActor(FindObject("/Script/FortniteGame.FortQuickBars"));
+			QB->ProcessEvent(FindObject("/Script/Engine.Actor:SetOwner"), &PC);
+			*Finder::Find(PC, "QuickBars") = QB;
+			Update(PC);
 
-			*Finder::Find<bool*>(Globals::GPC, "bHasInitializedWorldInventory") = true;
+			*Finder::Find<bool*>(PC, "bHasInitializedWorldInventory") = true;
 		}
 	}
 }

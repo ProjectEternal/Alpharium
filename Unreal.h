@@ -1,10 +1,5 @@
 #pragma once
 #include "pch.h"
-#include <iostream>
-#include <ostream>
-#include <fstream>
-#include <sstream>
-
 namespace Unreal {
 	void(__cdecl* Free)(void* buf);
 	void* (__fastcall*ProcessEventOG)(struct UObject*, struct UObject*, struct UObject*, void*); //UObject::ProcessEvent
@@ -91,12 +86,12 @@ namespace Unreal {
 	};
 
 	struct FName {
-		int NameIndex; //FNames use an Index so this can be used to change one FName to another. Example: BeaconNetDriver(284) -> GameNetDriver(282)
+		int Idx; //FNames use an Index so this can be used to change one FName to another. Example: BeaconNetDriver(284) -> GameNetDriver(282)
 		int Num; //Idk what this is used for.
 
-		FName() { NameIndex = Num = 0; };
+		FName() { Idx = Num = 0; };
 
-		FName(int Index) { NameIndex = Index; Num = 0; };
+		FName(int Index) { Idx = Index; Num = 0; };
 	};
 
 	struct UObject {
@@ -109,7 +104,7 @@ namespace Unreal {
 
 		//Basic way of making sure the object is Valid.
 		bool IsValid() {
-			return this != nullptr;
+			return (this != nullptr && Name.Idx != 0);
 		}
 
 		std::string GetName() {
@@ -157,7 +152,7 @@ namespace Unreal {
 		float W;
 
 		FQuat() {
-			X = Y = Z = W = 1.0f;
+			X = Y = Z = W = 0.0f;
 		}
 	};
 
@@ -182,14 +177,14 @@ namespace Unreal {
 		FTransform() {
 			Rotation = FQuat();
 			Scale3D = FVector(1, 1, 1);
-			Translation = FVector(1, 1, 1);
+			Translation = FVector(1, 1, 10000);
 		}
 
 		FQuat Rotation;
 		FVector Translation;
-		uint8_t UnknownData00[0x4];
+		unsigned char UnknownData00[0x4];
 		FVector Scale3D;
-		uint8_t UnknownData01[0x4];
+		unsigned char UnknownData01[0x4];
 	};
 
 	UObject* (__cdecl*SLO)(UObject*Class, UObject*Outer, const TCHAR* Name, const TCHAR* Fn, uint32_t Flags, UObject*, bool bAllowObjectReconciliation);
@@ -211,7 +206,7 @@ enum class ESpawnActorCollisionHandlingMethod : uint8_t
 
 struct FActorSpawnParameters
 {
-	FActorSpawnParameters() : Name(), Template(nullptr), Owner(nullptr), Instigator(nullptr), OverrideLevel(nullptr), SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::AlwaysSpawn), bRemoteOwned(0), bNoFail(1),
+	FActorSpawnParameters() : Name(), Template(nullptr), Owner(nullptr), Instigator(nullptr), OverrideLevel(nullptr), SpawnCollisionHandlingOverride(ESpawnActorCollisionHandlingMethod::AlwaysSpawn), bRemoteOwned(0), bNoFail(0),
 		bDeferConstruction(0),
 		bAllowDuringConstructionScript(1),
 		ObjectFlags(),
@@ -249,7 +244,7 @@ FActorSpawnParameters* GParms;
 Unreal::FTransform* GTrans;
 
 Unreal::FUObjectArray* GObjs; //Global UObject Array
-Unreal::UObject* (__fastcall* SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Transform, FActorSpawnParameters* Params);
+Unreal::UObject* (__fastcall* SpawnActor_OG)(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Loc, const FActorSpawnParameters& Params);
 
 struct CacheObj {
 	Unreal::UObject* Obj;
