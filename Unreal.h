@@ -333,6 +333,11 @@ namespace Finder {
 		for (CacheProp Obj : Cache) {
 			Log << "ClassName: " << Obj.Class->GetName() << " PropName: " << Obj.Name << " Offset: " << std::to_string(Obj.Offset) << "\n";
 		}
+		
+		std::ofstream Log2("ObjectCache.log");
+		for (CacheObj Obj : OCache) {
+			Log2 << "ObjName: " << Obj.Name << "\n";
+		}
 	}
 
 	UObject* FindChild(Unreal::UObject* InObject, std::string PropName) {

@@ -41,7 +41,7 @@ namespace Functions {
 	Unreal::UObject* (__fastcall* SpawnActor_Vectored)(Unreal::UObject* World, void* Idk, Unreal::UObject* Class, Unreal::FVector* Loc, Unreal::FVector* Rot, const FActorSpawnParameters& SpawnParams);
 
 	//TODO
-	Unreal::UObject* SpawnActor(Unreal::UObject* Class, Unreal::FVector Loc = Unreal::FVector(1, 1, 10000), Unreal::FVector Rot = Unreal::FVector(1,1,1)) {
+	Unreal::UObject* SpawnActor(Unreal::UObject* Class, Unreal::FVector Loc = Unreal::FVector(1, 1, 1), Unreal::FVector Rot = Unreal::FVector(1,1,1)) {
 		return SpawnActor_Vectored(GetWorld(), GetWorld(), Class, &Loc, &Rot, FActorSpawnParameters());
 	}
 

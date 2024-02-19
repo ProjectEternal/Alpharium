@@ -1,8 +1,6 @@
 #pragma once
 #include "pch.h"
-namespace Sigs {
-
-}
+#include "Offsets.h"
 
 namespace Memory {
 	//SigScan (not mine)

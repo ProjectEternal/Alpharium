@@ -32,7 +32,7 @@ struct FActiveGameplayEffectHandle
 	unsigned char Unk00[0x3];
 };
 
-void GrantEffect(Unreal::UObject* Pawn, Unreal::UObject * Effect) {
+void GrantEffect(Unreal::UObject* Pawn, Unreal::UObject* Effect) {
 	if (!Effect) {
 		return;
 	}
@@ -124,7 +124,7 @@ void SetupMatch() {
 
 	*Finder::Find<int*>(Globals::GameState, "WorldLevel") = 1;
 	*Finder::Find<float*>(Globals::GameState, "GameDifficulty") = 1.0f;
-	
+
 	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_GameplayState"));
 	Globals::GameState->ProcessEvent(FindObject("/Script/FortniteGame.FortGameState:OnRep_WorldManager"));
 
@@ -146,8 +146,149 @@ void SetupPC(Unreal::UObject* PC) {
 }
 
 namespace Server {
-	void Listen() {
+	struct FURL {
+		Unreal::FString Protocol;
+		Unreal::FString Host;
+		int Port;
+		Unreal::FString Map;
+		Unreal::FString RedirectURL;
+		Unreal::TArray<Unreal::FString> Op;
+		Unreal::FString Portal;
+		int Valid;
+	};
 
+	Unreal::UObject* BeaconHost;
+	Unreal::UObject* NetDriver;
+
+	bool IsReplicableActor(Unreal::UObject* Actor) {
+		if (!Actor->IsValid()) return false; //Invalid Actor
+		else if (*Finder::Find<bool*>(Actor, "bAlwaysRelevant")) return true; //Always Relevant
+		else if (*Finder::Find<uint8_t*>(Actor, "NetDormancy") == 4 && *Finder::Find<bool*>(Actor, "bNetStartup")) return false; //Net Dormant
+		else if (*Finder::Find<bool*>(Actor, "bReplicates") && *Finder::Find<uint8_t*>(Actor, "RemoteRole") != 0) return true;
+		else return false;
+	}
+
+	Unreal::UObject* GetOrInitCh(Unreal::UObject* Client, Unreal::UObject* Actor) {
+		if (!Client->IsValid() || !Actor->IsValid()) return nullptr;
+
+		//Search for an existing channel
+		Unreal::TArray<Unreal::UObject*>* OpenChannels = Finder::Find<Unreal::TArray<Unreal::UObject*>*>(Client, "OpenChannels");
+
+		for (int i = 0; i < OpenChannels->Num(); i++) {
+			Unreal::UObject* Ch = OpenChannels->At(i);
+
+			if (Ch->Class == FindObject("/Script/Engine.ActorChannel") && *Finder::Find(Ch, "Actor") == Actor) return Ch;
+		}
+
+		//Create one if possible
+		Unreal::UObject* Ret = reinterpret_cast<Unreal::UObject * (__thiscall*)(Unreal::UObject*, int, bool, int)>(Memory::GetAddressFromOffset(Offsets::UNetConnection::CreateChannel))(Client, 2, true, -1);
+		if (Ret) {
+			reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::SetChannelActor))(Ret, Actor);
+			*Finder::Find(Ret, "Connection") = Client;
+		}
+
+		return Ret;
+	}
+
+	void ServerReplicateActors() {
+		if (!NetDriver->IsValid()) return;
+		Unreal::TArray<Unreal::UObject*>* Connections = Finder::Find< Unreal::TArray<Unreal::UObject*>*>(NetDriver, "ClientConnections");
+
+		if (Connections->Num() > 0 && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
+			++*(int*)(__int64(NetDriver + Offsets::UNetDriver::ReplicationFrame));
+
+			Unreal::TArray<Unreal::UObject*> WorldActors;
+
+			struct {
+				Unreal::UObject* World;
+				Unreal::UObject* Class;
+				Unreal::TArray<Unreal::UObject*>& Out;
+			}params{ Functions::GetWorld(), FindObject("/Script/Engine.Actor"), WorldActors };
+
+			FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:GetAllActorsOfClass"), &params);
+
+			for (int i = 0; i < WorldActors.Num(); i++) {
+				Unreal::UObject* Actor = WorldActors.At(i);
+
+				if (!Actor->IsValid() || !IsReplicableActor(Actor)) WorldActors.Remove(i--);
+			}
+
+			for (int i = 0; i < Connections->Num(); i++) {
+				Unreal::UObject* Client = Connections->At(i);
+				if (!Client->IsValid()) continue;
+
+				Unreal::UObject* OwningActor = *Finder::Find(Client, "OwningActor");
+				Unreal::UObject* PlayerController = *Finder::Find(Client, "OwningActor");
+				Unreal::UObject** ViewTarget = Finder::Find(Client, "ViewTarget");
+
+				if (PlayerController->IsValid() && OwningActor->IsValid()) PlayerController->ProcessEvent(FindObject("/Script/Engine.Controller:GetViewTarget"), ViewTarget);
+				else if (OwningActor->IsValid()) *ViewTarget = OwningActor;
+				else *ViewTarget = nullptr;
+
+				if (PlayerController->IsValid()) reinterpret_cast<void(__thiscall*)(Unreal::UObject * PC)>(Memory::GetAddressFromOffset(Offsets::APlayerController::SendClientAdjustment))(PlayerController);
+
+				for (int i = 0; i < WorldActors.Num(); i++) {
+					Unreal::UObject* Actor = WorldActors.At(i);
+
+					//NET TO GET CallPreReplication
+					//reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AActor::CallPreReplication))(Actor, NetDriver);
+
+					Unreal::UObject* Ch = GetOrInitCh(Client, Actor);
+					if (Ch) reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::ReplicateActor))(Ch);
+				}
+			}
+		}
+	}
+
+	void* (__thiscall* TickFlushOG)(Unreal::UObject*, int);
+
+	void* TickFlush(Unreal::UObject* ND, int DeltaSeconds) {
+		if (NetDriver->IsValid() && ND == NetDriver) {
+			ServerReplicateActors();
+		}
+
+		return TickFlushOG(ND, DeltaSeconds);
+	}
+
+	void InitRep() {
+		MessageBoxA(0, "Listening", "KMS", MB_OK);
+		while (true) {
+			ServerReplicateActors();
+			Sleep(1000 / 30);
+		}
+	}
+
+	void Listen() {
+		BeaconHost = Functions::SpawnActor(FindObject("/Script/OnlineSubsystemUtils.OnlineBeaconHost"));
+
+		if (BeaconHost->IsValid() && reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::InitHost))(BeaconHost)) {
+			*Finder::Find<int*>(BeaconHost, "ListenPort") = 7777;
+			MessageBoxA(0, "Beacon Listening", "KMS", MB_OK);
+			reinterpret_cast<void(__thiscall*)(Unreal::UObject*, bool)>(Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::PauseBeaconReqeusts))(BeaconHost, false);
+			MessageBoxA(0, "Beacon Accepting Reqs", "KMS", MB_OK);
+			NetDriver = *Finder::Find(BeaconHost, "NetDriver");
+			if (NetDriver->IsValid()) {
+				MessageBoxA(0, "Beacon Driver Valid", "KMS", MB_OK);
+				Finder::Find<Unreal::FName*>(NetDriver, "NetDriverName")->Idx = 282;
+
+				MessageBoxA(0, "GameDrivername Set", "KMS", MB_OK);
+
+				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
+
+				reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::SetWorld))(NetDriver, Functions::GetWorld());
+
+				MessageBoxA(0, "SetWorld", "KMS", MB_OK);
+
+				FURL URL;
+
+				URL.Port = 7777;
+
+				Unreal::FString Err;
+
+				if (reinterpret_cast<char(__thiscall*)(Unreal::UObject * ND, void* NF, FURL*, bool, Unreal::FString&)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::InitListen))(NetDriver, Functions::GetWorld(), &URL, false, Err)) CreateThread(0,0,(LPTHREAD_START_ROUTINE)InitRep,0,0,0);
+				else MessageBoxA(0, "Server Failed to Start", "KMS", MB_OK);
+			}
+		}
 	}
 }
 
@@ -200,11 +341,11 @@ namespace Hooks {
 
 			if (FuncName == "/Script/FortniteGame.FortCheatManager:CheatScript") {
 				std::string Str = reinterpret_cast<Unreal::FString*>(Params)->ToString();
-				
+
 				if (Str == "findercache") {
 					Finder::DumpCache();
 				}
-				
+
 				if (Str == "testspawn") {
 					Functions::SpawnActor(FindObject("/Script/FortniteGame.FortGameState"));
 				}
@@ -226,7 +367,7 @@ namespace Hooks {
 			//}
 
 			if (FuncName == "/Script/FortniteGame.FortQuickBars:ServerActivateSlotInternal") {
-				struct SAS_P{
+				struct SAS_P {
 					uint8_t QB;
 					int Slot;
 					float AcivateDelay;
@@ -245,7 +386,7 @@ namespace Hooks {
 
 			if (GetAsyncKeyState(VK_F1) & 0x1) {
 				Sleep(1000);
-				Functions::SpawnActor(FindObject("/Script/FortniteGame.FortQuickBars"));
+				Server::Listen();
 			}
 		}
 		else if (!Ready) {
