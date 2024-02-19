@@ -2,6 +2,7 @@
 namespace Offsets {
 	namespace AOnlineBeacon {
 		int InitHost = 0x10B1E80;
+		int NotifyControlMessage = 0x10B40F0;
 		int PauseBeaconReqeusts = 0x3AB760;
 	}
 
@@ -11,6 +12,11 @@ namespace Offsets {
 		int SetWorld = 0x13B4D70;
 
 		int ReplicationFrame = 0x1DC;
+	}
+
+	namespace UWorld {
+		int WelcomePlayer = 0x15D4280;
+		int NotifyControlMessage = 0x15CA480;
 	}
 
 	namespace UChannel {
@@ -34,5 +40,10 @@ namespace Offsets {
 
 	namespace AActor {
 		int CallPreReplication = 0x0;
+	}
+
+	namespace Misc {
+		int ValidationFailure = 0x3ABAA0;
+		int ReservationFailure = 0x3ABC40;
 	}
 }

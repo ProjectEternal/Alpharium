@@ -502,3 +502,15 @@ struct BitField {
 	uint8_t G : 1;
 	uint8_t H : 1;
 };
+
+namespace Unreal {
+	struct AActor : public UObject {
+		inline bool bReplicates() {
+			return Finder::Find<BitField*>(this, "bReplicates")->C; //AbActorEnableCollision, UKD, bReplicates
+		}
+
+		inline bool bAlwaysRelevant() {
+			return Finder::Find<BitField*>(this, "bReplicates")->E; //bHidden, bNetTemporary, bNetStartup, bOnlyRelevantToOwner, bAlwaysRelevant, bReplicateMovement, bTearOff, bExchangedRoles
+		}
+	};
+}
