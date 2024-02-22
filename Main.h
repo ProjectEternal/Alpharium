@@ -174,7 +174,7 @@ namespace Server {
 
 	void __fastcall NCM_Hook(Unreal::UObject* _Beacon, Unreal::UObject* Beacon, Unreal::UObject* Client, uint8_t MessageType, void* Bunch) {
 		if (MessageType == 4) {
-			*Finder::Find<int*>(Client, "CurrentNetSpeed") = 3000;
+			*Finder::Find<int*>(Client, "CurrentNetSpeed") = 20000;
 			return;
 		}
 
@@ -213,16 +213,14 @@ namespace Server {
 
 		return Ret;
 	}
-
+//#define REP
 	void ServerReplicateActors() {
 		if (!NetDriver->IsValid()) return;
+		++*(DWORD*)(__int64(NetDriver) + Offsets::UNetDriver::ReplicationFrame);
 		Unreal::TArray<Unreal::UObject*>* Connections = Finder::Find< Unreal::TArray<Unreal::UObject*>*>(NetDriver, "ClientConnections");
 
-		if (Connections->Num() > 0 && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
-			MessageBoxA(0, "RepFrame", "Test", MB_OK);
-
-			++*(DWORD*)(__int64(NetDriver) + Offsets::UNetDriver::ReplicationFrame);
-
+		if (Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
+#ifdef REP
 			Unreal::TArray<Unreal::AActor*> WorldActors;
 
 			struct {
@@ -233,15 +231,12 @@ namespace Server {
 
 			FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:GetAllActorsOfClass"), &params);
 
-			MessageBoxA(0, "GetAllActorsOfClass", "Test", MB_OK);
-
 			for (int i = 0; i < WorldActors.Num(); i++) {
 				Unreal::AActor* Actor = WorldActors.At(i);
 
-				if (!Actor->IsValid() || !IsReplicableActor(Actor)) WorldActors.Remove(i--);
+				if (!Actor->IsValid() || !IsReplicableActor(Actor)) WorldActors.Remove(i);
 			}
-
-			MessageBoxA(0, "ConList", "Test", MB_OK);
+#endif
 
 			for (int i = 0; i < Connections->Num(); i++) {
 				Unreal::UObject* Client = Connections->At(i);
@@ -251,18 +246,14 @@ namespace Server {
 				Unreal::UObject* PlayerController = *Finder::Find(Client, "PlayerController");
 				Unreal::UObject** ViewTarget = Finder::Find(Client, "ViewTarget");
 
-				if (PlayerController->IsValid() && OwningActor->IsValid()) PlayerController->ProcessEvent(FindObject("/Script/Engine.Controller:GetViewTarget"), ViewTarget);
+				if (PlayerController->IsValid() && OwningActor->IsValid()) PlayerController->ProcessEvent(FindObject("/Script/Engine.Controller:GetViewTarget"), &*ViewTarget);
 				else if (OwningActor->IsValid()) *ViewTarget = OwningActor;
 				else *ViewTarget = nullptr;
 
-				if ((*ViewTarget)->IsValid()) continue;
-
-				MessageBoxA(0, "VTarget", "Test", MB_OK);
+				if (!(*ViewTarget)->IsValid()) continue;
 
 				if (PlayerController->IsValid()) reinterpret_cast<void(__thiscall*)(Unreal::UObject * PC)>(Memory::GetAddressFromOffset(Offsets::APlayerController::SendClientAdjustment))(PlayerController);
-
-				MessageBoxA(0, "SCA", "Test", MB_OK);
-
+#ifdef REP
 				for (int i = 0; i < WorldActors.Num(); i++) {
 					Unreal::UObject* Actor = WorldActors.At(i);
 
@@ -274,8 +265,7 @@ namespace Server {
 					Unreal::UObject* Ch = GetOrInitCh(Client, Actor);
 					if (Ch) reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::ReplicateActor))(Ch);
 				}
-
-				MessageBoxA(0, "Replicated", "Test", MB_OK);
+#endif
 			}
 		}
 	}
@@ -311,7 +301,7 @@ namespace Server {
 
 		while (true) {
 			Sleep(5000);
-			//ServerReplicateActors();
+			ServerReplicateActors();
 		}
 	}
 	void Listen() {
@@ -459,9 +449,11 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				//Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
-				Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
+				Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
+				//Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
 				Functions::GetLocalPC()->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
+				auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
+				Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Remove(0);
 				MH_CreateHook((void**)SA_Addr, Hooks::SpawnActor_Hk, (void**)&SpawnActor_OG);
 				MH_EnableHook((void**)SA_Addr);
 			}

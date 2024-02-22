@@ -36,7 +36,7 @@ namespace Unreal {
 
 		void Remove(int Index) {
 			if (!IsValid(Index)) return;
-			if (Index < Count)
+			if (Index <= Count)
 			{
 				if (Index != Count - 1)
 				{
