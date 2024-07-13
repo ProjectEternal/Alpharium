@@ -32,6 +32,7 @@
     <ProjectGuid>{8d8ba28a-74a3-4beb-b368-b5c8c0c07ed8}</ProjectGuid>
     <RootNamespace>Alpharium</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Client</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

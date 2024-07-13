@@ -12,7 +12,7 @@ bool InGame = false;
 #ifdef DEBUG
 std::ofstream SA_Log("SA.txt");
 #endif
-std::ofstream PE_Log("PE.txt");
+//std::ofstream PE_Log("PE.txt");
 
 struct FGameplayAbilitySpecDef
 {
