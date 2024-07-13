@@ -148,6 +148,24 @@ void SetupPC(Unreal::UObject* PC) {
 char patch() {
 	return 1;
 }
+//void(__thiscall* MiscCrashOG)(void*, char*);
+//void MiscCrash(void* a1, char* Str) {
+//	const char* Str2 = "Ok";
+//	if (Str) {
+//		MessageBoxA(0, "MiscCrash", "TEST", 0);
+//		void* v4 = reinterpret_cast<void* (*)(void*, void*, void*)>(Memory::GetAddressFromOffset(0x899D20))(a1, Str, &Str2);
+//		MessageBoxA(0, Str2, "TEST", MB_OK);
+//
+//		if (v4) return MiscCrashOG(a1, Str);
+//	}
+//	return;
+//	//PseudoCode
+//	char* v2 = Str;
+//	if (Str) {
+//		void* v4 = 0;//sub_899D20(a1,(void*)Str, (void*)&Str);
+//		short v5 = *reinterpret_cast<short*>(__int64(v4) + 2); //CRASH
+//	}
+//}
 
 namespace Server {
 	struct FURL {
@@ -168,8 +186,14 @@ namespace Server {
 
 	void(__fastcall* WelcomePlayerOG)(Unreal::UObject* _World, Unreal::UObject* World, Unreal::UObject* Client);
 
-	void __fastcall WelcomePlayer(Unreal::UObject* _World, Unreal::UObject* World, Unreal::UObject* Client) {
+	/*void __fastcall WelcomePlayer(Unreal::UObject* _World, Unreal::UObject* World, Unreal::UObject* Client) {
 		return WelcomePlayerOG(Functions::GetWorld(), Functions::GetWorld(), Client);
+	}*/
+
+	void* (*DispatchReqOG)(void* a1, void* RequestContent);
+	void* DispatchReqHook(void* a1, void* RequestContent) {
+		(*reinterpret_cast<int*>((__int64(RequestContent)) + 5)) = 3;
+		return DispatchReqOG(a1, RequestContent);
 	}
 
 	void __fastcall NCM_Hook(Unreal::UObject* _Beacon, Unreal::UObject* Beacon, Unreal::UObject* Client, uint8_t MessageType, void* Bunch) {
@@ -201,7 +225,7 @@ namespace Server {
 		for (int i = 0; i < OpenChannels->Num(); i++) {
 			Unreal::UObject* Ch = OpenChannels->At(i);
 
-			if (Ch->Class == FindObject("/Script/Engine.ActorChannel") && *Finder::Find(Ch, "Actor") == Actor) return Ch;
+			if (Ch->IsValid() && Ch->Class == FindObject("/Script/Engine.ActorChannel") && *Finder::Find(Ch, "Actor") == Actor) return Ch;
 		}
 
 		//Create one if possible
@@ -213,29 +237,36 @@ namespace Server {
 
 		return Ret;
 	}
-//#define REP
+#define REP
 	void ServerReplicateActors() {
+		static bool bTried = false;
 		if (!NetDriver->IsValid()) return;
 		++*(DWORD*)(__int64(NetDriver) + Offsets::UNetDriver::ReplicationFrame);
 		Unreal::TArray<Unreal::UObject*>* Connections = Finder::Find< Unreal::TArray<Unreal::UObject*>*>(NetDriver, "ClientConnections");
 
-		if (Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
+		if (!bTried && Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
+			bTried = true;
+			std::vector<Unreal::UObject*> RepActors;
 #ifdef REP
 			Unreal::TArray<Unreal::AActor*> WorldActors;
 
 			struct {
 				Unreal::UObject* World;
 				Unreal::UObject* Class;
-				Unreal::TArray<Unreal::AActor*>& Out;
+				Unreal::TArray<Unreal::AActor*> Out;
 			}params{ Functions::GetWorld(), FindObject("/Script/Engine.Actor"), WorldActors };
 
 			FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:GetAllActorsOfClass"), &params);
 
+			MessageBoxA(0, "Got Actors", "TEST", 0);
+
 			for (int i = 0; i < WorldActors.Num(); i++) {
 				Unreal::AActor* Actor = WorldActors.At(i);
 
-				if (!Actor->IsValid() || !IsReplicableActor(Actor)) WorldActors.Remove(i);
+				if (Actor->IsValid() && IsReplicableActor(Actor)) RepActors.push_back(Actor);
 			}
+
+			MessageBoxA(0, "Got RepActors", "TEST", 0);
 #endif
 
 			for (int i = 0; i < Connections->Num(); i++) {
@@ -250,20 +281,25 @@ namespace Server {
 				else if (OwningActor->IsValid()) *ViewTarget = OwningActor;
 				else *ViewTarget = nullptr;
 
+				MessageBoxA(0, "Set VT", "TEST", 0);
+
 				if (!(*ViewTarget)->IsValid()) continue;
 
 				if (PlayerController->IsValid()) reinterpret_cast<void(__thiscall*)(Unreal::UObject * PC)>(Memory::GetAddressFromOffset(Offsets::APlayerController::SendClientAdjustment))(PlayerController);
-#ifdef REP
-				for (int i = 0; i < WorldActors.Num(); i++) {
-					Unreal::UObject* Actor = WorldActors.At(i);
 
+				MessageBoxA(0, "SendClientAdjustment", "TEST", 0);
+#ifdef REP
+				for (Unreal::UObject* Actor : RepActors) {
 					if (!Actor->IsValid()) continue;
 
 					//NEED TO GET CallPreReplication
 					//reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AActor::CallPreReplication))(Actor, NetDriver);
 
 					Unreal::UObject* Ch = GetOrInitCh(Client, Actor);
+					MessageBoxA(0, "Setup Ch", "TEST", 0);
 					if (Ch) reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::ReplicateActor))(Ch);
+
+					MessageBoxA(0, "Replicated", "TEST", 0);
 				}
 #endif
 			}
@@ -290,40 +326,43 @@ namespace Server {
 		uintptr_t Validation = Memory::GetAddressFromOffset(Offsets::Misc::ValidationFailure);
 		MH_CreateHook((void*)Validation, patch, nullptr);
 		MH_EnableHook((void*)Validation);
-		
-		uintptr_t WelcomePlr = Memory::GetAddressFromOffset(Offsets::UWorld::WelcomePlayer);
-		MH_CreateHook((void*)WelcomePlr, WelcomePlayer, (void**)&WelcomePlayerOG);
-		MH_EnableHook((void*)WelcomePlr);
-		
-		uintptr_t NCMAddr = Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::NotifyControlMessage);
-		MH_CreateHook((void*)NCMAddr, NCM_Hook, nullptr);
-		MH_EnableHook((void*)NCMAddr);
 
-		while (true) {
+		/*uintptr_t MC_Addr = Memory::GetAddressFromOffset(Offsets::Misc::MiscCrash);
+		MH_CreateHook((void*)MC_Addr, MiscCrash, (void**)&MiscCrashOG);
+		MH_EnableHook((void*)MC_Addr);*/
+		
+		/*uintptr_t DPR_Addr = Memory::GetAddressFromOffset(Offsets::Misc::DispatchReq);
+		MH_CreateHook((void*)DPR_Addr, DispatchReqHook, (void**)&DispatchReqOG);
+		MH_EnableHook((void*)DPR_Addr);*/
+		
+		/*uintptr_t WelcomePlr = Memory::GetAddressFromOffset(Offsets::UWorld::WelcomePlayer);
+		MH_CreateHook((void*)WelcomePlr, WelcomePlayer, (void**)&WelcomePlayerOG);
+		MH_EnableHook((void*)WelcomePlr);*/
+		
+		/*uintptr_t NCMAddr = Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::NotifyControlMessage);
+		MH_CreateHook((void*)NCMAddr, NCM_Hook, nullptr);
+		MH_EnableHook((void*)NCMAddr);*/
+		/*while (true) {
 			Sleep(5000);
 			ServerReplicateActors();
-		}
+		}*/
 	}
+
 	void Listen() {
 		BeaconHost = Functions::SpawnActor(FindObject("/Script/OnlineSubsystemUtils.OnlineBeaconHost"));
 		if (BeaconHost->IsValid()) {
-			*Finder::Find<int*>(BeaconHost, "ListenPort") = 7777;
+			//*Finder::Find<int*>(BeaconHost, "ListenPort") = 7776;
 			if (!reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::InitHost))(BeaconHost)) return (void)MessageBoxA(0, "BeaconFailed", "Bruh", MB_OK);
 			MessageBoxA(0, "Beacon Listening", "KMS", MB_OK);
-			reinterpret_cast<void(__thiscall*)(Unreal::UObject*, bool)>(Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::PauseBeaconReqeusts))(BeaconHost, false);
-			MessageBoxA(0, "Beacon Accepting Reqs", "KMS", MB_OK);
+			//reinterpret_cast<void(__thiscall*)(Unreal::UObject*, bool)>(Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::PauseBeaconReqeusts))(BeaconHost, false);
+			//MessageBoxA(0, "Beacon Accepting Reqs", "KMS", MB_OK);
 			NetDriver = *Finder::Find(BeaconHost, "NetDriver");
 			if (NetDriver->IsValid()) {
-				MessageBoxA(0, "Beacon Driver Valid", "KMS", MB_OK);
+				MessageBoxA(0, "Beacon NetDriver Valid", "KMS", MB_OK);
+
 				(*Finder::Find<Unreal::FName*>(NetDriver, "NetDriverName")) = Unreal::FName(282);
-
+				*Finder::Find(NetDriver, "World") = Functions::GetWorld();
 				MessageBoxA(0, "GameDriverName Set", "KMS", MB_OK);
-
-				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
-
-				reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::SetWorld))(NetDriver, Functions::GetWorld());
-
-				MessageBoxA(0, "SetWorld", "KMS", MB_OK);
 
 				FURL URL;
 
@@ -331,8 +370,15 @@ namespace Server {
 
 				Unreal::FString Err;
 
-				/*if (reinterpret_cast<char(__thiscall*)(Unreal::UObject * ND, void* NF, FURL&, bool, Unreal::FString&)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::InitListen))(NetDriver, Functions::GetWorld(), URL, false, Err)) CreateThread(0,0,(LPTHREAD_START_ROUTINE)InitRep,0,0,0);
-				else MessageBoxA(0, "Server Failed to Start", "KMS", MB_OK);*/
+				if (!reinterpret_cast<bool(__thiscall*)(Unreal::UObject * ND, void* NF, FURL&, bool, Unreal::FString&)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::InitListen))(NetDriver, Functions::GetWorld(), URL, false, Err))
+				{
+					MessageBoxA(0, "Server Failed to Start", "KMS", MB_OK);
+				}
+				
+				reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::SetWorld))(NetDriver, Functions::GetWorld());
+				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
+
+				MessageBoxA(0, "SetWorld", "KMS", MB_OK);
 
 				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)InitRep, 0, 0, 0);
 			}
@@ -348,7 +394,7 @@ namespace Hooks {
 		static auto GameStateClass = ("/Script/FortniteGame.FortGameState");
 		std::string ClassName = Class1->GetName();
 		//Override Classes
-		if (ClassName == "/Script/Engine.SpectatorPawn") {
+		/*if (ClassName == "/Script/Engine.SpectatorPawn") {
 			//Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
 		}
 		else if (ClassName == PlayerControllerClass) {
@@ -357,7 +403,7 @@ namespace Hooks {
 		else if (ClassName == PlayerStateClass) {
 			Class1 = FindObject("/Script/FortniteGame.FortPlayerStatePvP");
 		}
-		else if (ClassName == GameStateClass) {
+		else*/ if (ClassName == GameStateClass) {
 			Class1 = FindObject("/Script/FortniteGame.FortGameStatePvPBaseDestruction");
 		}
 #ifdef DEBUG
@@ -437,10 +483,16 @@ namespace Hooks {
 				Unreal::FGuid ItemGUID = Functions::Inventory::GetItemGUID(Pawn, (bool)InParams->QB, InParams->Slot);
 				Functions::Inventory::Equip(Pawn, Functions::Inventory::GetItemFromGUID(Pawn, ItemGUID), ItemGUID);
 			}
-
+			static bool bInGame = false;
 			if (GetAsyncKeyState(VK_F1) & 0x1) {
-				Sleep(1000);
-				Server::Listen();
+				if (bInGame) {
+					Server::ServerReplicateActors();
+				}
+				else {
+					bInGame = true;
+					Sleep(1000);
+					Server::Listen();
+				}
 			}
 		}
 		else if (!Ready) {
@@ -449,7 +501,7 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
+				Unreal::FString Map = L"AITestbed_2?Game=FortniteGame.FortGameMode";
 				//Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
 				Functions::GetLocalPC()->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				auto GI = *Finder::Find(Globals::GEngine, "GameInstance");

@@ -43,6 +43,9 @@ namespace Offsets {
 	}
 
 	namespace Misc {
+		int MiscCrash = 0x89C920;
+
+		int DispatchReq = 0x1ADDA40;
 		int ValidationFailure = 0x3ABAA0;
 		int ReservationFailure = 0x3ABC40;
 	}
