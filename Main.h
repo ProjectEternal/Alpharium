@@ -145,7 +145,7 @@ void SetupPC(Unreal::UObject* PC) {
 	PC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ServerReadyToStartMatch"));
 }
 
-char patch() {
+__int64 patch() {
 	return 1;
 }
 //void(__thiscall* MiscCrashOG)(void*, char*);
@@ -237,7 +237,7 @@ namespace Server {
 
 		return Ret;
 	}
-#define REP
+	#define REP
 	void ServerReplicateActors() {
 		static bool bTried = false;
 		if (!NetDriver->IsValid()) return;
@@ -245,7 +245,7 @@ namespace Server {
 		Unreal::TArray<Unreal::UObject*>* Connections = Finder::Find< Unreal::TArray<Unreal::UObject*>*>(NetDriver, "ClientConnections");
 
 		if (!bTried && Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
-			bTried = true;
+			//bTried = true;
 			std::vector<Unreal::UObject*> RepActors;
 #ifdef REP
 			Unreal::TArray<Unreal::AActor*> WorldActors;
@@ -326,6 +326,10 @@ namespace Server {
 		uintptr_t Validation = Memory::GetAddressFromOffset(Offsets::Misc::ValidationFailure);
 		MH_CreateHook((void*)Validation, patch, nullptr);
 		MH_EnableHook((void*)Validation);
+		
+		uintptr_t Kick = Memory::GetAddressFromOffset(Offsets::Misc::KickPlayer);
+		MH_CreateHook((void*)Kick, patch, nullptr);
+		MH_EnableHook((void*)Kick);
 
 		/*uintptr_t MC_Addr = Memory::GetAddressFromOffset(Offsets::Misc::MiscCrash);
 		MH_CreateHook((void*)MC_Addr, MiscCrash, (void**)&MiscCrashOG);
@@ -342,10 +346,10 @@ namespace Server {
 		/*uintptr_t NCMAddr = Memory::GetAddressFromOffset(Offsets::AOnlineBeacon::NotifyControlMessage);
 		MH_CreateHook((void*)NCMAddr, NCM_Hook, nullptr);
 		MH_EnableHook((void*)NCMAddr);*/
-		/*while (true) {
+		while (true) {
 			Sleep(5000);
 			ServerReplicateActors();
-		}*/
+		}
 	}
 
 	void Listen() {
@@ -404,7 +408,7 @@ namespace Hooks {
 			Class1 = FindObject("/Script/FortniteGame.FortPlayerStatePvP");
 		}
 		else*/ if (ClassName == GameStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortGameStatePvPBaseDestruction");
+			Class1 = FindObject("/Script/FortniteGame.FortGameStateZone");
 		}
 #ifdef DEBUG
 		SA_Log << "Class: " << ClassName << std::endl;
@@ -501,8 +505,8 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				Unreal::FString Map = L"AITestbed_2?Game=FortniteGame.FortGameMode";
-				//Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
+				//Unreal::FString Map = L"AITestbed_2?Game=FortniteGame.FortGameMode";
+				Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
 				Functions::GetLocalPC()->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
 				Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Remove(0);
