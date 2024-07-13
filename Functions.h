@@ -163,7 +163,7 @@ namespace Functions {
 				*Finder::Find<Unreal::FString*>(FortHero, "Hero_Name") = L"Rescue Trooper Ramirez";
 				*Finder::Find<int*>(FortHero, "Gender") = 2;
 
-				//FindObject("/Engine/Transient.FortEngine_0:FortLocalPlayer_0.FortFrontEndContext_0")->ProcessEvent(FindObject("/Script/FortniteUI.FortFrontEndContext:SetPersonalHeroChoice"), &FortHero);
+				FindObject("/Engine/Transient.FortEngine_0:FortLocalPlayer_0.FortFrontEndContext_0")->ProcessEvent(FindObject("/Script/FortniteUI.FortFrontEndContext:SetPersonalHeroChoice"), &FortHero);
 			}
 		}
 
@@ -189,11 +189,16 @@ namespace Functions {
 			}
 		}
 
+		void RegisterWithParty() {
+			Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ClientRegisterWithParty"));
+		}
+
 		void Setup() {
 			GiveAllItems();
 			DestroyTT();
 			SetupHero();
 			*Finder::Find<bool*>(Globals::GPC, "bTutorialCompleted") = true;
+			RegisterWithParty();
 		}
 	}
 

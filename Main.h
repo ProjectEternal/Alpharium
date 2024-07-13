@@ -192,82 +192,8 @@ namespace Hooks {
 			}
 #endif
 
-			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
-				InGame = true;
-				Sleep(1000);
-				Setup();
-			}
-
-			if (FuncName == "/Script/FortniteGame.FortCheatManager:CheatScript") {
-				std::string Str = reinterpret_cast<Unreal::FString*>(Params)->ToString();
-
-				//TODO
-				if (Str == "qb") {
-					//Inv (BROKEN)
-					Functions::Inventory::Update();
-				}
-				
-				if (Str == "findercache") {
-					Finder::DumpCache();
-				}
-
-				return 0;
-			}
-
-			//LS Drop
-			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct" && !bRealPawn) {
-				//PawnStuff
-				bRealPawn = true;
-				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide")); //Fixes Weird Movement Shit
-
-				Functions::GetPC();
-				//Inv
-				Functions::Inventory::Setup();
-
-				Functions::Inventory::AddBaseItems();
-			}
-
-			//Inventory
-			if (FuncName == "/Game/Effects/Fort_Effects/Gameplay/Pickups/B_Pickups.B_Pickups_C:OnAboutToEnterBackpack") {
-				Unreal::UObject* Def = *Finder::Find(_Obj, "ItemDefinition");
-				int Count = 1;
-				if (Def->IsValid()) { 
-					std::string ClassName = Def->Class->GetName();
-					//TODO: Find another function
-					if (ClassName == "/Script/FortniteGame.FortResourceItemDefinition") Count = 10;
-					Functions::Inventory::AddItem(Def, 0, Count, 1);
-					Functions::Inventory::Update();
-				}
-			}
-
-			if (FuncName == "/Script/FortniteGame.FortQuickBars:ServerActivateSlotInternal") {
-				Functions::GetPC();
-				struct SAS_P{
-					uint8_t QB;
-					int Slot;
-					float AcivateDelay;
-				};
-
-				SAS_P* InParams = reinterpret_cast<SAS_P*>(Params);
-
-				Unreal::FGuid ItemGUID = Functions::Inventory::GetItemGUID((bool)InParams->QB, InParams->Slot);
-				Functions::Inventory::Equip(Functions::Inventory::GetItemFromGUID(ItemGUID), ItemGUID);
-			}
+			return Unreal::ProcessEventOG(_Obj, Obj, Func, Params);
 		}
-		else if (!Ready) {
-			if (GetAsyncKeyState(VK_F1) & 0x1) {
-				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
-				Sleep(1000);
-				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
-				Globals::GPC->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
-				Ready = true;
-				MH_CreateHook((void**)SA_Addr, Hooks::SpawnActor_Hk, (void**)&SpawnActor_OG);
-				MH_EnableHook((void**)SA_Addr);
-			}
-		}
-
-		return Unreal::ProcessEventOG(_Obj, Obj, Func, Params);
 	}
 }
 
