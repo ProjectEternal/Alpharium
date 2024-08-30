@@ -190,13 +190,11 @@ namespace Server {
 
 	//TODO: Handle bOnlyRelevantToOwner Actors
 	bool IsReplicableActor(Unreal::AActor* Actor) {
+		static int Offset = Finder::GetPropByClass(FindObject("/Script/Engine.Actor"), "RemoteRole");
 		if (!Actor->IsValid()) return false; //Invalid Actor
 		else if (Actor->bAlwaysRelevant()) return true; //Always Relevant
-		/*NetDormancy isn't a UProperty I'm assuming? TODO: Find a way to get the Actor->NetDormancy
-		//else if (*Finder::Find<uint8_t*>(Actor, "NetDormancy") == 4 && *Finder::Find<bool*>(Actor, "bNetStartup")) return false; //Net Dormant
-		*/
-		else if (Actor->bReplicates() && *Finder::Find<uint8_t*>(Actor, "RemoteRole") != 0) return true;
-		else return true;
+		else if (*reinterpret_cast<uint8_t*>(__int64(Actor) + Offset) != 0) return true;
+		else return false;
 	}
 
 	Unreal::UObject* GetOrInitCh(Unreal::UObject* Client, Unreal::UObject* Actor) {
@@ -229,16 +227,14 @@ namespace Server {
 		if (Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
 			std::vector<Unreal::UObject*> RepActors;
 #ifdef REP
-			Unreal::TArray<Unreal::AActor*> WorldActors;
-
 			struct {
 				Unreal::UObject* World;
 				Unreal::UObject* Class;
 				Unreal::TArray<Unreal::AActor*> Out;
-			}params{ Functions::GetWorld(), FindObject("/Script/Engine.Actor"), WorldActors };
-
+			}params{ Functions::GetWorld(), FindObject("/Script/Engine.Actor") };
+			
 			FindObject("/Script/Engine.Default__GameplayStatics")->ProcessEvent(FindObject("/Script/Engine.GameplayStatics:GetAllActorsOfClass"), &params);
-
+			Unreal::TArray<Unreal::AActor*> WorldActors = params.Out;
 			for (int i = 0; i < WorldActors.Num(); i++) {
 				Unreal::AActor* Actor = WorldActors.At(i);
 
@@ -254,7 +250,7 @@ namespace Server {
 				Unreal::UObject* PlayerController = *Finder::Find(Client, "PlayerController");
 				Unreal::UObject** ViewTarget = Finder::Find(Client, "ViewTarget");
 
-				if (PlayerController->IsValid() && OwningActor->IsValid()) PlayerController->ProcessEvent(FindObject("/Script/Engine.Controller:GetViewTarget"), &*ViewTarget);
+				if (PlayerController->IsValid() && OwningActor->IsValid()) PlayerController->ProcessEvent(FindObject("/Script/Engine.Controller:GetViewTarget"), ViewTarget);
 				else if (OwningActor->IsValid()) *ViewTarget = OwningActor;
 				else *ViewTarget = nullptr;
 
@@ -265,8 +261,7 @@ namespace Server {
 				for (Unreal::UObject* Actor : RepActors) {
 					if (!Actor->IsValid()) continue;
 
-					//NEED TO GET CallPreReplication
-					//reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AActor::CallPreReplication))(Actor, NetDriver);
+					reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::AActor::CallPreReplication))(Actor, NetDriver);
 
 					Unreal::UObject* Ch = GetOrInitCh(Client, Actor);
 					if (Ch) reinterpret_cast<bool(__thiscall*)(Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::ReplicateActor))(Ch);
@@ -349,16 +344,16 @@ namespace Hooks {
 		static auto GameStateClass = ("/Script/FortniteGame.FortGameState");
 		std::string ClassName = Class1->GetName();
 		//Override Classes
-		/*if (ClassName == "/Script/Engine.SpectatorPawn") {
-			//Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
+		if (ClassName == "/Script/Engine.SpectatorPawn") {
+			Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
 		}
 		else if (ClassName == PlayerControllerClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerPvPBaseDestruction");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerZone");
 		}
 		else if (ClassName == PlayerStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerStatePvP");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerStateZone");
 		}
-		else*/ if (ClassName == GameStateClass) {
+		else if (ClassName == GameStateClass) {
 			Class1 = FindObject("/Script/FortniteGame.FortGameStateZone");
 		}
 #ifdef DEBUG
@@ -381,6 +376,26 @@ namespace Hooks {
 				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
 #endif
+			//MP
+			if (FuncName == "/Script/Engine.GameMode:K2_PostLogin" && InGame) {
+				Unreal::UObject* PC = *reinterpret_cast<Unreal::UObject**>(Params);
+
+				if (PC->IsValid()) {
+					SetupPC(PC);
+					if (*Finder::Find(PC, "Pawn")) {
+						SetupPawn(PC, *Finder::Find(PC, "Pawn"));
+					}
+					else {
+						MessageBoxA(0, "Pawn Not Setup", "OTMP", 0);
+					}
+				}
+			}
+
+			if (FuncName == "/Script/Engine.PlayerController:ClientReturnToMainMenu") {
+				return 0;
+			}
+
+			//Gameplay
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false) {
 				InGame = true;

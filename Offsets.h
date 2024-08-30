@@ -39,7 +39,7 @@ namespace Offsets {
 	}
 
 	namespace AActor {
-		int CallPreReplication = 0x0;
+		int CallPreReplication = 0x10F0390; //This took way to long to find
 	}
 
 	namespace Misc {

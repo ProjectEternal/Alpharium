@@ -506,11 +506,13 @@ struct BitField {
 namespace Unreal {
 	struct AActor : public UObject {
 		inline bool bReplicates() {
-			return Finder::Find<BitField*>(this, "bReplicates")->C; //AbActorEnableCollision, UKD, bReplicates
+			static int Offset = Finder::GetPropByClass(FindObject("/Script/Engine.Actor"), "bReplicates");
+			return reinterpret_cast<BitField*>(__int64(this) + Offset)->C; //bActorEnableCollision, UKD, bReplicates
 		}
 
 		inline bool bAlwaysRelevant() {
-			return Finder::Find<BitField*>(this, "bReplicates")->E; //bHidden, bNetTemporary, bNetStartup, bOnlyRelevantToOwner, bAlwaysRelevant, bReplicateMovement, bTearOff, bExchangedRoles
+			static int Offset = Finder::GetPropByClass(FindObject("/Script/Engine.Actor"), "bAlwaysRelevant");
+			return reinterpret_cast<BitField*>(__int64(this) + Offset)->E; //bHidden, bNetTemporary, bNetStartup, bOnlyRelevantToOwner, bAlwaysRelevant, bReplicateMovement, bTearOff, bExchangedRoles
 		}
 	};
 }
