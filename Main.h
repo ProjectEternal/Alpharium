@@ -80,7 +80,7 @@ void God(Unreal::UObject* Pawn) {
 void SetupPawn(Unreal::UObject* PC, Unreal::UObject* Pawn) {
 	PC->ProcessEvent(FindObject("/Script/Engine.Controller:Possess"), &Pawn);;
 	God(Pawn);
-	if (true) {
+	if (PC->GetName().contains("FortPlayerControllerZone")) {
 		//Character Parts
 		Unreal::FString Gender = L"Male";
 		Pawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:RandomizeOutfit"), &Gender);
@@ -295,9 +295,13 @@ namespace Server {
 		uintptr_t Kick = Memory::GetAddressFromOffset(Offsets::Misc::KickPlayer);
 		MH_CreateHook((void*)Kick, patch, nullptr);
 		MH_EnableHook((void*)Kick);
+		
+		uintptr_t Dispatch = Memory::GetAddressFromOffset(Offsets::Misc::DispatchReq);
+		MH_CreateHook((void*)Dispatch, DispatchReqHook, nullptr);
+		MH_EnableHook((void*)Dispatch);
 
 		while (true) {
-			Sleep(5000);
+			Sleep(1000 / 20);
 			ServerReplicateActors();
 		}
 	}
@@ -381,8 +385,10 @@ namespace Hooks {
 			if (FuncName == "/Script/Engine.GameMode:K2_PostLogin" && InGame) {
 				Unreal::UObject* PC = *reinterpret_cast<Unreal::UObject**>(Params);
 
-				if (PC->IsValid() && Obj->GetName() == "/Game/Maps/PVP/PVP_Tower.PVP_Tower:PersistentLevel.FortGameMode_0") {
-					SetupPC(PC);
+				if (PC->IsValid()) {
+					if (Obj->GetName() == "/Game/Maps/PVP/PVP_Tower.PVP_Tower:PersistentLevel.FortGameMode_0") {
+						SetupPC(PC);
+					}
 					if (*Finder::Find(PC, "Pawn")) {
 						SetupPawn(PC, *Finder::Find(PC, "Pawn"));
 					}
@@ -472,7 +478,7 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				//Unreal::FString Map = L"AITestbed_2?Game=FortniteGame.FortGameMode";
+				//Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
 				Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
 				Functions::GetLocalPC()->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
