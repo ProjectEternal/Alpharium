@@ -148,6 +148,7 @@ void SetupPC(Unreal::UObject* PC) {
 __int64 patch() {
 	return 1;
 }
+
 //void(__thiscall* MiscCrashOG)(void*, char*);
 //void MiscCrash(void* a1, char* Str) {
 //	const char* Str2 = "Ok";
@@ -312,6 +313,7 @@ namespace Server {
 
 				(*Finder::Find<Unreal::FName*>(NetDriver, "NetDriverName")) = Unreal::FName(282);
 				*Finder::Find(NetDriver, "World") = Functions::GetWorld();
+				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
 				MessageBoxA(0, "GameDriverName Set", "KMS", MB_OK);
 
 				FURL URL;
@@ -326,7 +328,6 @@ namespace Server {
 				}
 				
 				reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::SetWorld))(NetDriver, Functions::GetWorld());
-				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
 
 				MessageBoxA(0, "SetWorld", "KMS", MB_OK);
 
@@ -380,7 +381,7 @@ namespace Hooks {
 			if (FuncName == "/Script/Engine.GameMode:K2_PostLogin" && InGame) {
 				Unreal::UObject* PC = *reinterpret_cast<Unreal::UObject**>(Params);
 
-				if (PC->IsValid()) {
+				if (PC->IsValid() && Obj->GetName() == "/Game/Maps/PVP/PVP_Tower.PVP_Tower:PersistentLevel.FortGameMode_0") {
 					SetupPC(PC);
 					if (*Finder::Find(PC, "Pawn")) {
 						SetupPawn(PC, *Finder::Find(PC, "Pawn"));
