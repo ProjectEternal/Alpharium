@@ -212,10 +212,11 @@ namespace Core {
 		if (MH_Initialize() != MH_STATUS::MH_OK) {
 			MessageBoxA(0, "MH Failed!", "ERROR", MB_OK);
 		}
-		MH_CreateHook((void**)PE_Addr, Hooks::PEHook, (void**)&Unreal::ProcessEventOG);
-		MH_EnableHook((void**)PE_Addr);
+		Unreal::ProcessEventOG = decltype(Unreal::ProcessEventOG)(PE_Addr);
+		/*MH_CreateHook((void**)PE_Addr, Hooks::PEHook, (void**)&Unreal::ProcessEventOG);
+		MH_EnableHook((void**)PE_Addr);*/
 		MessageBoxA(0, "Welcome to Eternal!", "@GDBOI101", MB_OK);
-		Functions::Frontend::Setup();
+		//Functions::Frontend::Setup();
 		Functions::SetupConsole();
 	}
 }
