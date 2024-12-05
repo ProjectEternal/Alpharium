@@ -86,6 +86,10 @@ void SetupPawn() {
 		Globals::GPawn->ProcessEvent(FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C:OnCharacterPartsReinitialized"));
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:ToggleGender"));
 
+		//Health
+		float Health = 100.0f;
+		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPawn:SetHealth"), &Health);
+
 		//Movement Fix
 		auto MovementSet = (*Finder::Find(Globals::GPawn, "MovementSet"));
 		*Finder::Find<float*>(MovementSet, "BackwardSpeedMultiplier") = 0.65f;
@@ -103,7 +107,7 @@ void SetupPawn() {
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenDelay"));
 		AttrSet->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerAttrSet:OnRep_StaminaRegenRate"));
 
-		//bilities
+		//Abilities
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Jump"));
 		GrantAbility(FindObject("/Script/FortniteGame.FortGameplayAbility_Sprint"));
 		GrantAbility(Unreal::StaticLoadObject(L"/Game/Abilities/Player/Generic/Traits/DefaultPlayer/GA_DefaultPlayer_InteractSearch.GA_DefaultPlayer_InteractSearch_C", FindObject("/Script/Engine.BlueprintGeneratedClass")));
@@ -155,17 +159,17 @@ namespace Hooks {
 			Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
 		}
 		else if (ClassName == PlayerControllerClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerPvPBaseDestruction");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerZone");
 		}
 		else if (ClassName == PlayerStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerStatePvP");
+			Class1 = FindObject("/Script/FortniteGame.FortPlayerStateZone");
 		}
 		else if (ClassName == GameStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortGameStatePvPBaseDestruction");
+			Class1 = FindObject("/Script/FortniteGame.FortGameStateZone");
 		}
-		else if (ClassName == "FortUIZone") {
+		/*else if (ClassName == "FortUIZone") {
 			Class1 = FindObject("/Script/FortniteGame.FortUIPvPBaseDestruction");
-		}
+		}*/
 #ifdef DEBUG
 		SA_Log << "Class: " << ClassName << std::endl;
 #endif
@@ -173,12 +177,12 @@ namespace Hooks {
 		auto ret = SpawnActor_OG(InWorld, Class, Class1, Transform, SpawnParameters);
 		if (!ret->IsValid()) return ret;
 		//Setup extra stuff
-		if (ClassName == "/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C") {
+		if (ClassName == "/Script/Engine.SpectatorPawn" || ClassName == "/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C") {
 			Globals::GPawn = ret;
 			SetupPawn();
 		}
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
-		else if (ClassName == GameStateClass) Globals::GameState = ret;
+		else if (ClassName == GameStateClass) {Globals::GameState = ret;
 
 		return ret;
 	}
@@ -225,6 +229,9 @@ namespace Hooks {
 				Functions::Inventory::Setup();
 
 				Functions::Inventory::AddBaseItems();
+
+				*Finder::Find<Unreal::FName*>(Globals::GameState, "MatchState") = Functions::Kismet::String2Name(L"InProgress");
+				Globals::GameState->ProcessEvent(FindObject("/Script/Engine.GameState:OnRep_MatchState"));
 			}
 
 			//Inventory
