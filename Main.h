@@ -183,8 +183,8 @@ namespace Server {
 	Unreal::UObject* BeaconHost;
 	Unreal::UObject* NetDriver;
 
-	void* (*DispatchReqOG)(void* a1, void* RequestContent);
-	void* DispatchReqHook(void* a1, void* RequestContent) {
+	wchar_t* (__thiscall *DispatchReqOG)(void* a1 ,void* RequestContent);
+	wchar_t* __fastcall DispatchReqHook(void* a1, void* Kms,void* RequestContent) {
 		(*reinterpret_cast<int*>((__int64(RequestContent)) + 5)) = 3;
 		return DispatchReqOG(a1, RequestContent);
 	}
@@ -212,7 +212,7 @@ namespace Server {
 
 		//Create one if possible
 		Unreal::UObject* Ret = reinterpret_cast<Unreal::UObject * (__thiscall*)(Unreal::UObject*, int, bool, int)>(Memory::GetAddressFromOffset(Offsets::UNetConnection::CreateChannel))(Client, 2, true, -1);
-		if (Ret) {
+		if (Ret->IsValid()) {
 			reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UChannel::SetChannelActor))(Ret, Actor);
 			*Finder::Find(Ret, "Connection") = Client;
 		}
@@ -222,7 +222,7 @@ namespace Server {
 	#define REP
 	void ServerReplicateActors() {
 		if (!NetDriver->IsValid()) return;
-		++*(DWORD*)(__int64(NetDriver) + Offsets::UNetDriver::ReplicationFrame);
+		++*(DWORD*)(((__int64(NetDriver)) + Offsets::UNetDriver::ReplicationFrame));
 		Unreal::TArray<Unreal::UObject*>* Connections = Finder::Find< Unreal::TArray<Unreal::UObject*>*>(NetDriver, "ClientConnections");
 
 		if (Connections->Num() > 0 && Connections->IsValid(0) && Connections->At(0)->IsValid() && *Finder::Find<bool*>(Connections->At(0), "InternalAck") == false) {
@@ -297,7 +297,7 @@ namespace Server {
 		MH_EnableHook((void*)Kick);
 		
 		uintptr_t Dispatch = Memory::GetAddressFromOffset(Offsets::Misc::DispatchReq);
-		MH_CreateHook((void*)Dispatch, DispatchReqHook, nullptr);
+		MH_CreateHook((void*)Dispatch, DispatchReqHook, (void**)&DispatchReqOG);
 		MH_EnableHook((void*)Dispatch);
 
 		while (true) {
@@ -317,7 +317,6 @@ namespace Server {
 
 				(*Finder::Find<Unreal::FName*>(NetDriver, "NetDriverName")) = Unreal::FName(282);
 				*Finder::Find(NetDriver, "World") = Functions::GetWorld();
-				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
 				MessageBoxA(0, "GameDriverName Set", "KMS", MB_OK);
 
 				FURL URL;
@@ -332,6 +331,7 @@ namespace Server {
 				}
 				
 				reinterpret_cast<void(__thiscall*)(Unreal::UObject*, Unreal::UObject*)>(Memory::GetAddressFromOffset(Offsets::UNetDriver::SetWorld))(NetDriver, Functions::GetWorld());
+				*Finder::Find(Functions::GetWorld(), "NetDriver") = NetDriver;
 
 				MessageBoxA(0, "SetWorld", "KMS", MB_OK);
 
@@ -460,10 +460,12 @@ namespace Hooks {
 				Unreal::FGuid ItemGUID = Functions::Inventory::GetItemGUID(Pawn, (bool)InParams->QB, InParams->Slot);
 				Functions::Inventory::Equip(Pawn, Functions::Inventory::GetItemFromGUID(Pawn, ItemGUID), ItemGUID);
 			}
+
 			static bool bInGame = false;
 			if (GetAsyncKeyState(VK_F1) & 0x1) {
 				if (bInGame) {
 					Server::ServerReplicateActors();
+					Sleep(1000);
 				}
 				else {
 					bInGame = true;
@@ -478,8 +480,8 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				//Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
-				Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
+				Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
+				//Unreal::FString Map = L"PvP_Tower?Game=Engine.GameMode";
 				Functions::GetLocalPC()->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				auto GI = *Finder::Find(Globals::GEngine, "GameInstance");
 				Finder::Find<Unreal::TArray<Unreal::UObject*>*>(GI, "LocalPlayers")->Remove(0);
