@@ -11,8 +11,8 @@ bool InGame = false;
 
 #ifdef DEBUG
 std::ofstream SA_Log("SA.txt");
-#endif
 std::ofstream PE_Log("PE.txt");
+#endif
 
 struct FGameplayAbilitySpecDef
 {
@@ -71,14 +71,12 @@ void GrantAbility(Unreal::UObject* Ability) {
 	GrantEffect(GE_Class);
 }
 
-bool bRealPawn = false;
-
 void SetupPawn() {
 	Functions::GetPC();
 	Globals::GPC->ProcessEvent(FindObject("/Script/Engine.Controller:Possess"), &Globals::GPawn);
 	Unreal::UObject* CM = Functions::SetupCM();
 	CM->ProcessEvent(FindObject("/Script/Engine.CheatManager:God"));
-	if (bRealPawn) {
+	if (true) {
 		//Character Parts
 		Unreal::FString Gender = L"Male";
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:RandomizeOutfit"), &Gender);
@@ -87,6 +85,8 @@ void SetupPawn() {
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerPawn:ToggleGender"));
 
 		//Health
+		auto HealthSet = FindObject("_0.HealthSet", false);
+		*Finder::Find<float*>(HealthSet, "MaxHealth") = 100.0f;
 		float Health = 100.0f;
 		Globals::GPawn->ProcessEvent(FindObject("/Script/FortniteGame.FortPawn:SetHealth"), &Health);
 
@@ -116,6 +116,21 @@ void SetupPawn() {
 
 		//Show Map
 		CM->ProcessEvent(FindObject("/Script/FortniteGame.FortCheatManager:UncoverMap"));
+
+		//PC/PS bs
+		*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
+		*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
+		BitField* FPC_BF = Finder::Find<BitField*>(Globals::GPC, "bFailedToRespawn");
+		FPC_BF->D = FPC_BF->F = FPC_BF->G = true;
+		*Finder::Find<bool*>(Globals::GPC, "bClientPawnIsLoaded") = true;
+		*Finder::Find<bool*>(Globals::GPC, "bHasInitiallySpawned") = true;
+
+		Unreal::UObject* PS = *Finder::Find(Globals::GPC, "PlayerState");
+
+		BitField* BF = Finder::Find<BitField*>(PS, "bIsGameSessionAdmin");
+		BF->A = BF->B = BF->C = BF->D = true;
+
+		Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_bHasServerFinishedLoading"));
 	}
 }
 
@@ -135,16 +150,17 @@ void Setup() {
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartMatch"));
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:StartPlay"));
 
-	*Finder::Find<bool*>(Globals::GPC, "bHasClientFinishedLoading") = true;
-	*Finder::Find<bool*>(Globals::GPC, "bHasServerFinishedLoading") = true;
-	BitField* FPC_BF = Finder::Find<BitField*>(Globals::GPC, "bFailedToRespawn");
-	FPC_BF->D = FPC_BF->F = FPC_BF->G = true;
-	*Finder::Find<bool*>(Globals::GPC, "bClientPawnIsLoaded") = true;
-	*Finder::Find<bool*>(Globals::GPC, "bHasInitiallySpawned") = true;
-
-	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:OnRep_bHasServerFinishedLoading"));
+	*Finder::Find<Unreal::FName*>(Globals::GameState, "MatchState") = Functions::Kismet::String2Name(L"InProgress");
+	Globals::GameState->ProcessEvent(FindObject("/Script/Engine.GameState:OnRep_MatchState"));
 
 	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ServerReadyToStartMatch"));
+	DumpObjects();
+	struct {
+		Unreal::UObject* NewPlayer;
+		Unreal::UObject* StartSpot;
+		Unreal::UObject* Ret;
+	} Params{Globals::GPC, FindObject("PlayerStart_",false)};
+	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:SpawnDefaultPawnFor"), &Params);
 }
 
 
@@ -156,10 +172,10 @@ namespace Hooks {
 		static auto GameStateClass = ("/Script/FortniteGame.FortGameState");
 		std::string ClassName = Class1->GetName();
 		//Override Classes
-		if (ClassName == "/Script/Engine.SpectatorPawn") {
+		/*if (ClassName == "/Script/Engine.SpectatorPawn") {
 			Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
 		}
-		else if (ClassName == PlayerControllerClass) {
+		else */if (ClassName == PlayerControllerClass) {
 			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerZone");
 		}
 		else if (ClassName == PlayerStateClass) {
@@ -192,14 +208,13 @@ namespace Hooks {
 		if (_Obj->IsValid() && Func->IsValid() && Ready) {
 			std::string FuncName = Func->GetName();
 #ifdef DEBUG
-			if (!FuncName.contains(":Receive") && !FuncName.contains("ServerTriggerCombatEvent") && !FuncName.contains("ActorBlueprints") && !FuncName.contains("ServerFireAIDirectorEvent") && !FuncName.contains("BuildingActor:") && !FuncName.contains(":ReadyTo") && !FuncName.contains("BuildingSMActor:") && !FuncName.contains("K2Node") && !FuncName.contains("ExecuteUbergraph") && !FuncName.contains("FortDayNightLightingAndFog:") && !FuncName.contains("AnimInstance") && !FuncName.contains(":Blueprint") && !FuncName.contains("EvaluateGraph") && !FuncName.contains(".CharacterMesh") && !FuncName.contains("BlueprintModify") && !FuncName.contains("/Script/Engine.HUD") && !FuncName.contains("OnMatchStarted") && !FuncName.contains("Construct") && !FuncName.contains("/Script/UMG.") && !FuncName.contains("/Game/UI/")) {
+			if (!FuncName.contains("__") && !FuncName.contains("OnSetSearched") && !FuncName.contains(":Receive") && !FuncName.contains("ServerTriggerCombatEvent") && !FuncName.contains("ActorBlueprints") && !FuncName.contains("ServerFireAIDirectorEvent") && !FuncName.contains("BuildingActor:") && !FuncName.contains(":ReadyTo") && !FuncName.contains("BuildingSMActor:") && !FuncName.contains("K2Node") && !FuncName.contains("ExecuteUbergraph") && !FuncName.contains("FortDayNightLightingAndFog:") && !FuncName.contains("AnimInstance") && !FuncName.contains(":Blueprint") && !FuncName.contains("EvaluateGraph") && !FuncName.contains(".CharacterMesh") && !FuncName.contains("BlueprintModify") && !FuncName.contains("/Script/Engine.HUD") && !FuncName.contains("OnMatchStarted") && !FuncName.contains("Construct") && !FuncName.contains("/Script/UMG.") && !FuncName.contains("/Game/UI/")) {
 				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
 #endif
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
 				InGame = true;
-				Sleep(1000);
 				Setup();
 			}
 
@@ -220,19 +235,15 @@ namespace Hooks {
 			}
 
 			//LS Drop
-			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct" && !bRealPawn) {
+			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct") {
 				//PawnStuff
-				bRealPawn = true;
-				Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide")); //Fixes Weird Movement Shit
+				//Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide")); //Fixes Weird Movement Shit
 
 				Functions::GetPC();
 				//Inv
 				Functions::Inventory::Setup();
 
 				Functions::Inventory::AddBaseItems();
-
-				*Finder::Find<Unreal::FName*>(Globals::GameState, "MatchState") = Functions::Kismet::String2Name(L"InProgress");
-				Globals::GameState->ProcessEvent(FindObject("/Script/Engine.GameState:OnRep_MatchState"));
 			}
 
 			//Inventory
@@ -267,7 +278,7 @@ namespace Hooks {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
 				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				Unreal::FString Map = L"PvP_Tower?Game=FortniteGame.FortGameMode";
+				Unreal::FString Map = L"AITestBed_2?Game=FortniteGame.FortGameMode";
 				Globals::GPC->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				Ready = true;
 				MH_CreateHook((void**)SA_Addr, Hooks::SpawnActor_Hk, (void**)&SpawnActor_OG);

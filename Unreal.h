@@ -258,7 +258,7 @@ struct CacheObj {
 
 std::vector<CacheObj> OCache;
 
-Unreal::UObject* FindObject(std::string TargetName, bool Exact = true, bool bLog = true) {
+Unreal::UObject* FindObject(std::string TargetName, bool Exact = true, bool bLog = true, int ToSkip = 0) {
 	//Cache
 	for (CacheObj Obj : OCache) {
 		if (Obj.Name == TargetName) {
@@ -270,6 +270,10 @@ Unreal::UObject* FindObject(std::string TargetName, bool Exact = true, bool bLog
 		Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
 
 		if (Object->IsValid() && (Exact ? (Object->GetName() == TargetName) : (Object->GetName().contains(TargetName)))) {
+			if (ToSkip > 0) {
+				ToSkip--;
+				continue;
+			}
 			OCache.push_back({ Object, TargetName });
 			return Object;
 		}
