@@ -136,7 +136,7 @@ void SetupPawn() {
 
 void Setup() {
 	Functions::GetPC();
-	//TODO: Fix Game Ending immediately
+
 	*Finder::Find<bool*>(Globals::GameMode, "bTravelInitiated") = true;
 	*Finder::Find<bool*>(Globals::GameMode, "bWorldIsReady") = true;
 	*Finder::Find<bool*>(Globals::GameMode, "bTeamGame") = true;
@@ -159,8 +159,10 @@ void Setup() {
 		Unreal::UObject* NewPlayer;
 		Unreal::UObject* StartSpot;
 		Unreal::UObject* Ret;
-	} Params{Globals::GPC, FindObject("PlayerStart_",false)};
+	} Params{ Globals::GPC, FindObject("PlayerStart_",false) };
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:SpawnDefaultPawnFor"), &Params);
+	Globals::GPawn = Params.Ret;
+	SetupPawn();
 }
 
 
@@ -194,10 +196,10 @@ namespace Hooks {
 		auto ret = SpawnActor_OG(InWorld, Class, Class1, Transform, SpawnParameters);
 		if (!ret->IsValid()) return ret;
 		//Setup extra stuff
-		if (ClassName == "/Script/Engine.SpectatorPawn" || ClassName == "/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C") {
+		/*if (ClassName == "/Script/Engine.SpectatorPawn" || ClassName == "/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C") {
 			Globals::GPawn = ret;
 			SetupPawn();
-		}
+		}*/
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
 		else if (ClassName == GameStateClass) Globals::GameState = ret;
 
@@ -212,6 +214,15 @@ namespace Hooks {
 				PE_Log << "ObjName: " << _Obj->GetName() << " FuncName: " << FuncName << std::endl;
 			}
 #endif
+
+			if (FuncName == "/Script/Engine.GameMode:GetDefaultPawnClassForController") {
+				struct FuncParams{
+					Unreal::UObject* InController;
+					Unreal::UObject* Ret;
+				};
+				reinterpret_cast<FuncParams*>(Params)->Ret = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
+				return nullptr;
+			}
 
 			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
 				InGame = true;
