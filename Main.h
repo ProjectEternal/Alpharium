@@ -147,6 +147,7 @@ void Setup() {
 	Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:ServerReadyToStartMatch"));
 }
 
+
 namespace Hooks {
 	//Scuffed Af
 	Unreal::UObject* __fastcall SpawnActor_Hk(Unreal::UObject* InWorld, Unreal::UObject* Class, Unreal::UObject* Class1, Unreal::FTransform* Transform, FActorSpawnParameters* SpawnParameters) {
@@ -182,7 +183,7 @@ namespace Hooks {
 			SetupPawn();
 		}
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
-		else if (ClassName == GameStateClass) {Globals::GameState = ret;
+		else if (ClassName == GameStateClass) Globals::GameState = ret;
 
 		return ret;
 	}
