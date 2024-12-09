@@ -103,7 +103,7 @@ namespace Unreal {
 		void** VTable;
 		int ObjectFlags; //idk much about these
 		int Index; //Im assuming the Objects Index in the Objects Array. (Not 100% sure)
-		UObject* Class; //The Objects Class. Example: BlueprintGeneratedClass, Texture2D, etc
+		struct UStruct* Class; //The Objects Class. Example: BlueprintGeneratedClass, Texture2D, etc
 		FName Name; //The Objects Name. (Find a better explanation lol)
 		UObject* Outer; //Idk how to describe this.
 
@@ -111,6 +111,8 @@ namespace Unreal {
 		bool IsValid() {
 			return this != nullptr;
 		}
+
+		bool IsA(UObject* InClass);
 
 		std::string GetName() {
 			return IsValid() ? GetPathName(this).ToString() : "INVALID";
@@ -326,6 +328,15 @@ namespace Unreal {
 			return (T*)GObjs->ObjObject.Objects[ObjectIndex].Object;
 		}
 	};
+}
+
+bool Unreal::UObject::IsA(UObject* InClass) {
+	UStruct* CClass = Class;
+	while (CClass->IsValid()) {
+		if (CClass == InClass) return true;
+		CClass = CClass->Super;
+	}
+	return false;
 }
 
 namespace Finder {

@@ -233,8 +233,9 @@ namespace Hooks {
 				std::string Str = reinterpret_cast<Unreal::FString*>(Params)->ToString();
 
 				//TODO
-				if (Str == "qb") {
+				if (Str == "giveall") {
 					//Inv (BROKEN)
+					Functions::Inventory::AddAllItems();
 					Functions::Inventory::Update();
 				}
 				
@@ -255,6 +256,9 @@ namespace Hooks {
 				Functions::Inventory::Setup();
 
 				Functions::Inventory::AddBaseItems();
+
+				Finder::Find<BitField*>(Globals::GPC, "bBuildPreviewMirrored")->B = true; //bBuildFree
+				Finder::Find<BitField*>(Globals::GPC, "bInfiniteAmmo")->A = true; //bInfiniteAmmo
 			}
 
 			//Inventory

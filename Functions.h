@@ -314,7 +314,7 @@ namespace Functions {
 			}
 		}
 
-		void AddItem(Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0) {
+		void AddItem(Unreal::UObject* ItemDef, int Slot = 0, int Count = 1, uint8_t Quickbar = 0, bool bAddToQB = true) {
 			GetPC();
 			if (!ItemDef) return;
 			Unreal::UObject* Inv = *Finder::Find(Globals::GPC, "WorldInventory");
@@ -336,15 +336,17 @@ namespace Functions {
 			ItemDef->ProcessEvent(FindObject("/Script/FortniteGame.FortItemDefinition:CreateTemporaryItemInstanceBP"), &Item);
 			ItemList->ItemInstances.Add(Item);
 			ItemList->ReplicatedEntries.Add(*Finder::Find<FFortItemEntry*>(Item, "ItemEntry"));
-			Unreal::FGuid ItemGUID;
-			Item->ProcessEvent(FindObject("/Script/FortniteGame.FortItem:GetItemGuid"), &ItemGUID);
-			struct {
-				Unreal::FGuid ItemGuid;
-				uint8_t Quickbar;
-				int Slot;
-			}p1{ ItemGUID,Quickbar,Slot};
-			Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
-			QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:ServerAddItemInternal"), &p1);
+			if (bAddToQB) {
+				Unreal::FGuid ItemGUID;
+				Item->ProcessEvent(FindObject("/Script/FortniteGame.FortItem:GetItemGuid"), &ItemGUID);
+				struct {
+					Unreal::FGuid ItemGuid;
+					uint8_t Quickbar;
+					int Slot;
+				}p1{ ItemGUID,Quickbar,Slot };
+				Unreal::UObject* QB = *Finder::Find(Globals::GPC, "QuickBars");
+				QB->ProcessEvent(FindObject("/Script/FortniteGame.FortQuickBars:ServerAddItemInternal"), &p1);
+			}
 		}
 
 		void AddBaseItems() {
@@ -358,6 +360,19 @@ namespace Functions {
 			AddItem(FindObject("/Game/Weapons/WeaponItemData/Melee/Melee_Impact_Pickaxe_T02.Melee_Impact_Pickaxe_T02"), 0);
 
 			Update();
+		}
+
+		void AddAllItems() {
+			GetPC();
+			for (int i = 0; i < GObjs->ObjObject.Num; i++) {
+				Unreal::UObject* Object = GObjs->ObjObject.Objects[i].Object;
+
+				if (Object->IsValid() && Object->IsA(FindObject("/Script/FortniteGame.FortWeaponItemDefinition"))) {
+					if (!Object->GetName().contains("Default__") && !Object->IsA(FindObject("/Script/FortniteGame.FortResourceItemDefinition"))) {
+						AddItem(Object, 0, 1, 0, false);
+					}
+				}
+			}
 		}
 
 		Unreal::FGuid GetItemGUID(bool isSecondary, int Slot) {
