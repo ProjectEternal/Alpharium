@@ -5,6 +5,7 @@ This is for LEARNING off off.
 <br>
 Idc if it's skunked asf.
 ### DON'T SKID MY SHIT
+Feel free to make pull requests though, contributions would be nice!
 ## Credits
 Scuffed as fuck.
 <br>

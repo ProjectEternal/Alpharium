@@ -8,6 +8,7 @@
 #pragma comment(lib,"minhook.lib")
 bool Ready = false;
 bool InGame = false;
+bool bIsPvP = false;
 
 #ifdef DEBUG
 std::ofstream SA_Log("SA.txt");
@@ -159,12 +160,11 @@ void Setup() {
 		Unreal::UObject* NewPlayer;
 		Unreal::UObject* StartSpot;
 		Unreal::UObject* Ret;
-	} Params{ Globals::GPC, FindObject("PlayerStart_",false) };
+	} Params{ Globals::GPC, FindObject("PlayerStart_",false,true,bIsPvP) };
 	Globals::GameMode->ProcessEvent(FindObject("/Script/Engine.GameMode:SpawnDefaultPawnFor"), &Params);
 	Globals::GPawn = Params.Ret;
 	SetupPawn();
 }
-
 
 namespace Hooks {
 	//Scuffed Af
@@ -172,34 +172,28 @@ namespace Hooks {
 		static auto PlayerStateClass = ("/Script/FortniteGame.FortPlayerState");
 		static auto PlayerControllerClass = ("/Script/FortniteGame.FortPlayerController");
 		static auto GameStateClass = ("/Script/FortniteGame.FortGameState");
+		static auto UIClass = ("/Script/FortniteGame.FortUIZone");
 		std::string ClassName = Class1->GetName();
 		//Override Classes
-		/*if (ClassName == "/Script/Engine.SpectatorPawn") {
-			Class1 = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
-		}
-		else */if (ClassName == PlayerControllerClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerControllerZone");
+		if (ClassName == PlayerControllerClass) {
+			Class1 = ((bIsPvP) ? FindObject("/Script/FortniteGame.FortPlayerControllerPvPBaseDestruction") : FindObject("/Script/FortniteGame.FortPlayerControllerZone"));
 		}
 		else if (ClassName == PlayerStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortPlayerStateZone");
+			Class1 = ((bIsPvP) ? FindObject("/Script/FortniteGame.FortPlayerStatePvP") : FindObject("/Script/FortniteGame.FortPlayerStateZone"));
 		}
 		else if (ClassName == GameStateClass) {
-			Class1 = FindObject("/Script/FortniteGame.FortGameStateZone");
+			Class1 = ((bIsPvP) ? FindObject("/Script/FortniteGame.FortGameStatePvPBaseDestruction") : FindObject("/Script/FortniteGame.FortGameStateZone"));
 		}
-		/*else if (ClassName == "FortUIZone") {
+		else if (bIsPvP && ClassName == UIClass) {
 			Class1 = FindObject("/Script/FortniteGame.FortUIPvPBaseDestruction");
-		}*/
+		}
 #ifdef DEBUG
 		SA_Log << "Class: " << ClassName << std::endl;
 #endif
 		//Spawn the Actor
 		auto ret = SpawnActor_OG(InWorld, Class, Class1, Transform, SpawnParameters);
 		if (!ret->IsValid()) return ret;
-		//Setup extra stuff
-		/*if (ClassName == "/Script/Engine.SpectatorPawn" || ClassName == "/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C") {
-			Globals::GPawn = ret;
-			SetupPawn();
-		}*/
+		//Set Globals
 		else if (ClassName == "/Script/FortniteGame.FortGameMode") Globals::GameMode = ret;
 		else if (ClassName == GameStateClass) Globals::GameState = ret;
 
@@ -220,11 +214,11 @@ namespace Hooks {
 					Unreal::UObject* InController;
 					Unreal::UObject* Ret;
 				};
-				reinterpret_cast<FuncParams*>(Params)->Ret = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Generic.PlayerPawn_Generic_C");
+				reinterpret_cast<FuncParams*>(Params)->Ret = FindObject("/Game/Abilities/Player/Pawns/PlayerPawn_Commando.PlayerPawn_Commando_C");
 				return nullptr;
 			}
 
-			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && InGame == false && Globals::GameMode->IsValid()) {
+			if (FuncName == "/Script/Engine.GameMode:ReadyToStartMatch" && !InGame && Globals::GameMode->IsValid()) {
 				InGame = true;
 				Setup();
 			}
@@ -248,26 +242,24 @@ namespace Hooks {
 
 			//LS Drop
 			if (FuncName == "/game/UI/Global_Elements/UIManager.UIManager_C:Construct") {
-				//PawnStuff
-				//Globals::GPC->ProcessEvent(FindObject("/Script/FortniteGame.FortPlayerController:Suicide")); //Fixes Weird Movement Shit
-
 				Functions::GetPC();
 				//Inv
 				Functions::Inventory::Setup();
 
 				Functions::Inventory::AddBaseItems();
 
+				//Misc
 				Finder::Find<BitField*>(Globals::GPC, "bBuildPreviewMirrored")->B = true; //bBuildFree
 				Finder::Find<BitField*>(Globals::GPC, "bInfiniteAmmo")->A = true; //bInfiniteAmmo
 			}
 
 			//Inventory
 			if (FuncName == "/Game/Effects/Fort_Effects/Gameplay/Pickups/B_Pickups.B_Pickups_C:OnAboutToEnterBackpack") {
+				//What in the Scuffnite
 				Unreal::UObject* Def = *Finder::Find(_Obj, "ItemDefinition");
 				int Count = 1;
 				if (Def->IsValid()) { 
 					std::string ClassName = Def->Class->GetName();
-					//TODO: Find another function
 					if (ClassName == "/Script/FortniteGame.FortResourceItemDefinition") Count = 10;
 					Functions::Inventory::AddItem(Def, 0, Count, 1);
 					Functions::Inventory::Update();
@@ -292,8 +284,9 @@ namespace Hooks {
 			if (GetAsyncKeyState(VK_F1) & 0x1) {
 				uintptr_t SA_Addr = Memory::GetAddressFromOffset(0x1352D70);
 				Sleep(1000);
-				MessageBoxA(0, "Press OK to Load In-Game!", "Alpharium", MB_OK);
-				Unreal::FString Map = L"AITestBed_2?Game=FortniteGame.FortGameMode";
+				int YN = MessageBoxA(0, "Use PvP Map?", "RV2", MB_YESNO);
+				bIsPvP = (YN == IDYES);
+				Unreal::FString Map = ((bIsPvP) ? L"PvP_Tower?Game=FortniteGame.FortGameMode" : L"AITestBed_2?Game=FortniteGame.FortGameMode");
 				Globals::GPC->ProcessEvent(FindObject("/Script/Engine.PlayerController:SwitchLevel"), &Map);
 				Ready = true;
 				MH_CreateHook((void**)SA_Addr, Hooks::SpawnActor_Hk, (void**)&SpawnActor_OG);
