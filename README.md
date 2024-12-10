@@ -1,7 +1,7 @@
 # Alpharium
 OT6.5 In Game
 ## Info
-This is for LEARNING off off.
+This is for LEARNING.
 <br>
 Idc if it's skunked asf.
 ### DON'T SKID MY SHIT
